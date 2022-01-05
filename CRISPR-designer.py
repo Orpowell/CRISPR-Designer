@@ -97,9 +97,22 @@ def codon_mutator(codon, codon_position):
     print(codon, )  # Show user target codon
     print(123)  # Label bases in codon
     base = int(input('Which nucleotide do you want to mutate? (1,2 or 3)'))  # collect which base to target
+
+    # Checks if nucleotide number input is incorrect and restarts function if not
+    if base not in [1, 2, 3]:
+        print('Please select a number from 1-3')
+        retry = codon_mutator(codon, codon_position)
+        return retry
+
     base = base - 1  # Convert to Base0
     mutant_nucleotide = str(input(
         'What nucleotide you do want to replace your target with? (A,T,G or C)'))  # collect which nucleotide to mutate target to.
+
+    # Check nucleotide input is correct and restarts function if not
+    if mutant_nucleotide not in ['A', 'T', 'G', 'C']:
+        print('Please select a base from A, T, G or C')
+        retry = codon_mutator(codon, codon_position)
+        return retry
 
     codon_list = list(codon)  # Separate target codon into list of 3 characters
     codon_list[base] = mutant_nucleotide  # Mutate codon as requested
@@ -121,7 +134,7 @@ def make_sgRNA(oligo):
 # Create 60mer repair template containing desired mutation
 def make_repair_template(position, target, nucleotide):
     mutant_seq = list(record.seq)  # convert entire protein sequence to list
-    mutant_seq[target] = nucleotide  # implement mutation
+    mutant_seq[target] = nucleotide.lower()  # implement mutation as lower case to highlight in final result
 
     repair_template = "".join(mutant_seq)[
                       position - 30:position + 30]  # Create 60mer with 30 nt either side of mutation
