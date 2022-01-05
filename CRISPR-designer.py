@@ -3,8 +3,10 @@ import sys
 
 from Bio import SeqIO
 
-
 # Get nucleotide sequence of target protein
+from Bio.Seq import Seq
+
+
 def get_sequence(path):
     # Parse fasta file into Biopython Seq object
     for sequence in SeqIO.parse(path, "fasta"):
@@ -82,7 +84,7 @@ def within_20mer(codon_position):
     # select and return best 20mer
     try:
         best_match = possible[-1]
-        print('Codon present within 20nt of PAM site')
+        print('Codon is present within 20nt of a PAM site\n')
         return best_match
 
     # If no 20mer is found, exit program
@@ -94,7 +96,7 @@ def within_20mer(codon_position):
 # Provide interface for mutating codon, and determines which base in the codon will mutate and to what base
 def codon_mutator(codon, codon_position):
     codon = str(codon)  # Convert codon to string from Seq object for manipulation
-    print(codon, )  # Show user target codon
+    print(codon)  # Show user target codon
     print(123)  # Label bases in codon
     base = int(input('Which nucleotide do you want to mutate? (1,2 or 3)'))  # collect which base to target
 
@@ -116,7 +118,10 @@ def codon_mutator(codon, codon_position):
 
     codon_list = list(codon)  # Separate target codon into list of 3 characters
     codon_list[base] = mutant_nucleotide  # Mutate codon as requested
+    mutant_codon = "".join(codon_list) # Create string of mutant codon
 
+    print(
+        f"Mutating {Seq(codon).translate()} ---> {Seq(mutant_codon).translate()}\n")  # Show effect of mutation on amino acid output
     mutation_site = base + codon_position  # calculate site of mutation in global sequence
 
     return mutant_nucleotide, mutation_site  # return mutated nucleotide and position
