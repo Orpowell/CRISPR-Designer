@@ -68,26 +68,36 @@ def find_60mers(site, sequence):
 
 # Get position of target amino acid, identify corresponding base and desired mutation
 def get_codon():
-    residue_number = int(input('Input residue position: '))  # Collect amino acid position
-    codon_start = (residue_number * 3) - 3  # Calculate start position of codon in nucleotide sequence
-    codon = record.seq[codon_start:codon_start + 3]  # Identify full codon sequence (3 Base pairs)
+    residue_number = input('Input residue position: ')  # Collect amino acid position
 
-    print(f'Target is: {codon.translate()} @ position {residue_number}')  # Print amino acid and location
-    return codon, codon_start
+    try:
+        residue_number = int(residue_number)
+        codon_start = (residue_number * 3) - 3  # Calculate start position of codon in nucleotide sequence
+        codon = record.seq[codon_start:codon_start + 3]  # Identify full codon sequence (3 Base pairs)
+
+        print(f'Target is: {codon.translate()} @ position {residue_number}')  # Print amino acid and location
+        return codon, codon_start
+
+    except ValueError:
+        print('Error: position must be an integer')
+        retry = get_codon()
+        return retry
 
 
-# Check the target codon is within 20 nucleotides of a PAM site
+# Check the target codon is within 20 or 60 nucleotides of a PAM site
 def check_in_oligomer(codon_start, i, mode=1):
-    minimum = result[i][0]
-    maximum = result[i][1]
+    minimum_oligomer = result[i][0]
+    maximum_oligomer = result[i][1]
 
+    # if codon is within 20 nucleotides of a PAM site
     if mode == 1:
-        if (codon_start < maximum) & (minimum < codon_start):
+        if (codon_start < maximum_oligomer) & (minimum_oligomer < codon_start):
             return result[i][2]
 
+    # if codon is within 60 nucleotides of a PAM site
     else:
-        if (codon_start < maximum) & (minimum < codon_start):
-            return [result[i][2], maximum, minimum]
+        if (codon_start < maximum_oligomer) & (minimum_oligomer < codon_start):
+            return [result[i][2], maximum_oligomer, minimum_oligomer]
 
 
 # Find all 20mers that contain the target codon and determine best one (last one, so more in the middle), exit program if none are found.
@@ -108,41 +118,65 @@ def within_20mer(codon_position):
 
 
 def within_60mer(codon_position):
-    # Generate list of all 20mers containing target codon
+    # Generate list of all 60mers containing target codon
     possible = list(
         filter(lambda x: x is not None, [check_in_oligomer(codon_position, i, mode=2) for i in range(len(result))]))
 
     # select and return best 60mer
-    best_match = possible[-1][0]
-    minim = possible[-1][2]
-    maxim = possible[-1][1]
+    best_match = possible[-1][0]  # Return best sequence with codon within 60mer
+    minim = possible[-1][2]  # return start position of 60mer
+    maxim = possible[-1][1]  # return end position of 60mer
 
-    print('Codon is present within 60nt of a PAM site\n')
+    print('Codon is present within 60nt of a PAM site\n')  # Confirm to user
     return best_match, maxim, minim
 
 
 # Provide interface for mutating codon, and determines which base in the codon will mutate and to what base
 def codon_mutator(codon, codon_position):
+    # get position of base to mutate within codon (1,2,3)
+    def get_position():
+        base_position = input('Which nucleotide do you want to mutate? (1,2 or 3)')  # collect base position
+
+        # Check input is an integer
+        try:
+            base_1 = int(base_position)
+
+            # Check input is a number between 1 and 3 or ask for input again
+            if base_1 not in [1, 2, 3]:
+                print('Please select a number from 1-3')
+                restart = get_position()
+                return restart
+
+            # Convert input from Base1 to Base0 and return value
+            else:
+                base_0 = base_1 - 1
+                return base_0
+
+        # If value is not an integer ask for input again
+        except ValueError:
+            print('Error: Please use integer')
+            restart = get_position()
+            return restart
+
+    # Collect what mutation to make within codon
+    def get_nucleotide():
+        # Get the base for the desired mutation
+        nucleotide_change = input('What nucleotide you do want to replace your target with? (A,T,G or C)')
+
+        # Check input is A, T, G or C or ask for input again
+        if nucleotide_change not in ['A', 'T', 'G', 'C']:
+            print('Please select a base from A, T, G or C')
+            restart = get_nucleotide()
+            return restart
+
+        # Return nucleotide if correct
+        else:
+            return nucleotide_change
+
     codon = str(codon)  # Convert codon to string from Seq object for manipulation
-    print(codon)  # Show user target codon
-    print(123)  # Label bases in codon
-    base = int(input('Which nucleotide do you want to mutate? (1,2 or 3)'))  # collect which base to target
-
-    # Checks if nucleotide number input is incorrect and restarts function if not
-    if base not in [1, 2, 3]:
-        print('Please select a number from 1-3')
-        retry = codon_mutator(codon, codon_position)
-        return retry
-
-    base = base - 1  # Convert to Base0
-    mutant_nucleotide = str(input(
-        'What nucleotide you do want to replace your target with? (A,T,G or C)'))  # collect which nucleotide to mutate target to.
-
-    # Check nucleotide input is correct and restarts function if not
-    if mutant_nucleotide not in ['A', 'T', 'G', 'C']:
-        print('Please select a base from A, T, G or C')
-        retry = codon_mutator(codon, codon_position)
-        return retry
+    print(codon, '\n123')  # Show user target codon174
+    base = get_position()  # Collect position of mutation site within codon
+    mutant_nucleotide = get_nucleotide()  # collect what mutation to make at site within codon
 
     codon_list = list(codon)  # Separate target codon into list of 3 characters
     codon_list[base] = mutant_nucleotide  # Mutate codon as requested
@@ -166,7 +200,7 @@ def make_sgRNA(oligo):
 
 # Create 60mer repair template containing desired mutation
 def make_repair_template(position, target, nucleotide, mode=1):
-
+    # Used to make repair template if mutant codon is within 20 nt of a PAM site
     if mode == 1:
         mutant_seq = list(record.seq)  # convert entire protein sequence to list
         mutant_seq[target] = nucleotide.lower()  # implement mutation as lower case to highlight in final result
@@ -174,22 +208,20 @@ def make_repair_template(position, target, nucleotide, mode=1):
                           position - 30:position + 30]  # Create 60mer with 30 nt either side of mutation
         print(f"Repair template: {repair_template}")  # Display repair template to user
 
+    # Used to make repair template if mutant codon is within 60 nt of a PAM site
     else:
         mutant_seq = list(record.seq)  # convert entire protein sequence to list
-        print(minimum, maximum, position)
-        distance_from_20mer = (maximum-20) - position
-        print(distance_from_20mer)
-        codon_start = distance_from_20mer + 6 + position
-        print(codon_start)
-        codon = record.seq[codon_start:codon_start + 3]
+        distance_from_20mer = (
+                                          maximum - 20) - position  # calculate distance between mutation and position 20 nt from PAM site
+        codon_start = distance_from_20mer + 6 + position  # identify codon 2 positions within 20 mer
+        codon = record.seq[codon_start:codon_start + 3]  # Find codon
 
-        print('Make synonymous Mutation in this codon')
-        mutant, site = codon_mutator(codon, codon_start)
-        mutant_seq[target] = nucleotide.lower()
-        print(mutant.lower(), site)
-        mutant_seq[site] = mutant.lower()
-        repair_template = "".join(mutant_seq)[minimum:maximum]
-        print(f"Repair template: {repair_template}")
+        print('Make synonymous mutation in this codon')  # Request user makes synonymous mutation
+        mutant, site = codon_mutator(codon, codon_start)  # Make synonymous mutation
+        mutant_seq[target] = nucleotide.lower()  # implement target mutation
+        mutant_seq[site] = mutant.lower()  # implement synonymous mutation
+        repair_template = "".join(mutant_seq)[minimum:maximum]  # Make repair template
+        print(f"Repair template: {repair_template}")  # print repair template
 
 
 if __name__ == '__main__':
@@ -220,14 +252,12 @@ if __name__ == '__main__':
 
         result = list(filter(lambda x: x is not None, test))  # Remove None values
 
-        best_60mer, maximum, minimum = within_60mer(position)  ## Need start/finish pos for synonymous mutation
+        best_60mer, maximum, minimum = within_60mer(position)  # Need start/finish pos for synonymous mutation
 
-        guide = str(best_60mer[-20:]).lower()
+        guide = str(best_60mer[-20:]).lower()  # Isolate sgRNA insert from 60mer
 
-        nucleotide, target = codon_mutator(target_codon, position)
+        nucleotide, target = codon_mutator(target_codon, position)  # allow user to mutate target codon
 
-        make_repair_template(position, target, nucleotide, mode=0)
+        make_repair_template(position, target, nucleotide, mode=0)  # maker repair template 60mer
 
-        make_sgRNA(guide)
-
-
+        make_sgRNA(guide)  # Make sgRNA 60mer
