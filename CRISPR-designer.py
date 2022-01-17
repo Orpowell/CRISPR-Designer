@@ -195,8 +195,8 @@ def make_sgRNA(oligo):
     back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
 
     sgRNA = front + oligo.lower() + back  # Generate complete 60mer
-    print('sgRNA 60mer:', sgRNA)  # print complete 60mer
-    print('Reverse complement sgRNA 60mer:', Seq(sgRNA).reverse_complement())  # print complete 60mer
+
+    return sgRNA, Seq(sgRNA).reverse_complement()
 
 
 # Create 60mer repair template containing desired mutation
@@ -209,17 +209,15 @@ def make_repair_template(position, target, nucleotide, mode=1):
         repair_template = mutant_gene[position - 30:position + 30]  # Create 60mer with 30 nt either side of mutation
 
         forward_primer = mutant_gene[(position - 81):(position - 31)] + mutant_gene[(position - 30):(position - 20)]
-        reverse_primer = mutant_gene[(position + 20):(position + 30)] + mutant_gene[(position + 31):(position + 81)]
-
-        print(f"Repair template: {repair_template}")  # print repair template
-        print(f"Forward primer: {forward_primer}")  # print forward primer
-        print(f"Reverse primer: {reverse_primer}")  # print reverse primer
-        print(f"Full template: {mutant_gene[(position - 81):(maximum + 81)]}\n")  # print full repair template
+        reverse_primer = Seq(mutant_gene[(position + 20):(position + 30)] + mutant_gene[(position + 31):(
+                position + 81)]).reverse_complement()
+        full_template = mutant_gene[(position - 81):(position + 81)]
 
     # Used to make repair template if mutant codon is within 60 nt of a PAM site
     else:
         mutant_seq = list(record.seq)  # convert entire protein sequence to list
-        distance_from_20mer = (maximum - 20) - position  # calculate distance between mutation and position 20 nt from PAM site
+        distance_from_20mer = (
+                                      maximum - 20) - position  # calculate distance between mutation and position 20 nt from PAM site
         codon_start = distance_from_20mer + 6 + position  # identify codon 2 positions within 20 mer
         codon = record.seq[codon_start:codon_start + 3]  # Find codon
 
@@ -231,17 +229,16 @@ def make_repair_template(position, target, nucleotide, mode=1):
         repair_template = mutant_gene[minimum:maximum]  # Make repair template
 
         forward_primer = mutant_gene[(minimum - 51):(minimum - 1)] + mutant_gene[minimum:(minimum + 20)]
-        reverse_primer = mutant_gene[(maximum - 20):maximum] + mutant_gene[(maximum + 1):(maximum + 50)]
+        reverse_primer = Seq(
+            mutant_gene[(maximum - 20):maximum] + mutant_gene[(maximum + 1):(maximum + 50)]).reverse_complement()
+        full_template = mutant_gene[(minimum - 51):(maximum + 51)]
 
-        print(f"Repair template: {repair_template}")  # print repair template
-        print(f"Forward primer: {forward_primer}")  # print forward primer
-        print(f"Reverse primer: {reverse_primer}")  # print reverse primer
-        print(f"Full template: {mutant_gene[(minimum - 51):(maximum + 51)]}\n")  # print full repair template
+    return repair_template, forward_primer, reverse_primer, full_template
 
 
 if __name__ == '__main__':
 
-    record = get_sequence("test.fsa")  # Convert Fasta file to Seq object
+    record = get_sequence("S288C_YMR202W_ERG2_coding.fsa")  # Convert Fasta file to Seq object
 
     pam_sites = find_PAM(record.seq)  # Identify PAM sites
 
@@ -257,9 +254,10 @@ if __name__ == '__main__':
 
         nucleotide, target = codon_mutator(target_codon, position)  # Allow user to mutate codon
 
-        make_sgRNA(best_20mer)  # Make sgRNA 60mer
+        sgRNA_forward, sgRNA_reverse = make_sgRNA(best_20mer)  # Make sgRNA 60mer
 
-        make_repair_template(position, target, nucleotide)  # Make repair template 60mer
+        repair_template, forward_primer, reverse_primer, full_repair_template = make_repair_template(position, target,
+                                                                                                     nucleotide)  # Make repair template 60mer
 
     else:
 
@@ -273,6 +271,22 @@ if __name__ == '__main__':
 
         nucleotide, target = codon_mutator(target_codon, position)  # allow user to mutate target codon
 
-        make_repair_template(position, target, nucleotide, mode=0)  # maker repair template 60mer
+        repair_template, forward_primer, reverse_primer, full_repair_template = make_repair_template(position, target,
+                                                                                                     nucleotide,
+                                                                                                     mode=0)  # maker repair template 60mer
 
-        make_sgRNA(guide)  # Make sgRNA 60mer
+        sgRNA_forward, sgRNA_reverse = make_sgRNA(guide)  # Make sgRNA 60mers
+
+    # Write all data to a .txt file in fasta format
+    file_name = input('Please input file name: ') + '.txt'
+
+    with open(file_name, 'w+') as file:
+        file.write(f'{file_name}\n')
+        file.write(f' \n> Protein sequence\n{record.seq.translate()}\n')
+        file.write(f' \n> Nucleotide sequence\n{record.seq}\n')
+        file.write(f' \n> sgRNA forward\n{sgRNA_forward} \n')
+        file.write(f' \n> sgRNA reverse\n{sgRNA_reverse}\n')
+        file.write(f' \n> repair template\n{repair_template}\n')
+        file.write(f" \n> forward repair template primer\n{forward_primer}\n")
+        file.write(f' \n> reverse repair template primer\n{reverse_primer}\n')
+        file.write(f' \n> full repair template\n{full_repair_template}\n')
