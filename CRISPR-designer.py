@@ -206,10 +206,10 @@ def make_repair_template(position, target, nucleotide, mode=1):
         mutant_seq = list(record.seq)  # convert entire protein sequence to list
         mutant_seq[target] = nucleotide.lower()  # implement mutation as lower case to highlight in final result
         mutant_gene = "".join(mutant_seq)
-        repair_template = mutant_gene[position - 30:position + 30]  # Create 60mer with 30 nt either side of mutation
+        repair_template_sequence = mutant_gene[position - 30:position + 30]  # Create 60mer with 30 nt either side of mutation
 
-        forward_primer = mutant_gene[(position - 81):(position - 31)] + mutant_gene[(position - 30):(position - 20)]
-        reverse_primer = Seq(mutant_gene[(position + 20):(position + 30)] + mutant_gene[(position + 31):(
+        forward_primer_sequence = mutant_gene[(position - 81):(position - 31)] + mutant_gene[(position - 30):(position - 20)]
+        reverse_primer_sequence = Seq(mutant_gene[(position + 20):(position + 30)] + mutant_gene[(position + 31):(
                 position + 81)]).reverse_complement()
         full_template = mutant_gene[(position - 81):(position + 81)]
 
@@ -226,14 +226,14 @@ def make_repair_template(position, target, nucleotide, mode=1):
         mutant_seq[target] = nucleotide.lower()  # implement target mutation
         mutant_seq[site] = mutant.lower()  # implement synonymous mutation
         mutant_gene = "".join(mutant_seq)
-        repair_template = mutant_gene[minimum:maximum]  # Make repair template
+        repair_template_sequence = mutant_gene[minimum:maximum]  # Make repair template
 
-        forward_primer = mutant_gene[(minimum - 51):(minimum - 1)] + mutant_gene[minimum:(minimum + 20)]
-        reverse_primer = Seq(
+        forward_primer_sequence = mutant_gene[(minimum - 51):(minimum - 1)] + mutant_gene[minimum:(minimum + 20)]
+        reverse_primer_sequence = Seq(
             mutant_gene[(maximum - 20):maximum] + mutant_gene[(maximum + 1):(maximum + 50)]).reverse_complement()
         full_template = mutant_gene[(minimum - 51):(maximum + 51)]
 
-    return repair_template, forward_primer, reverse_primer, full_template
+    return repair_template_sequence, forward_primer_sequence, reverse_primer_sequence, full_template
 
 
 if __name__ == '__main__':
@@ -257,7 +257,7 @@ if __name__ == '__main__':
         sgRNA_forward, sgRNA_reverse = make_sgRNA(best_20mer)  # Make sgRNA 60mer
 
         repair_template, forward_primer, reverse_primer, full_repair_template = make_repair_template(position, target,
-                                                                                                     nucleotide)  # Make repair template 60mer
+                                                                                                     nucleotide)  # Make repair template 60mer and primers
 
     else:
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
         repair_template, forward_primer, reverse_primer, full_repair_template = make_repair_template(position, target,
                                                                                                      nucleotide,
-                                                                                                     mode=0)  # maker repair template 60mer
+                                                                                                     mode=0)  # maker repair template 60mer and primers
 
         sgRNA_forward, sgRNA_reverse = make_sgRNA(guide)  # Make sgRNA 60mers
 
