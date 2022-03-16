@@ -1,3 +1,5 @@
+#!/usr/local/bin/python3.7
+
 import re
 import sys
 from Bio import SeqIO
