@@ -24,7 +24,7 @@ Alternatively, A.V.A can be run from an IDE.
 
 ## Using CRISPR Designer
 
-[Tutorial](https://github.com/paymon123/agario-clone/blob/master/demo.gif)
+[Tutorial](https://github.com/Orpowell/CRISPR-Designer/blob/master/tutorial.gif)
 
 
 
