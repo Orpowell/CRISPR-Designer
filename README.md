@@ -1,7 +1,7 @@
 # CRISPR Designer
 CRISPR Designer is a tool for the rapid design of guide sequences and repair templates to generate point mutations within 60 nucleotides of a PAM site in a target protein.  The primers and sequences generated are designed for use with the protocol outlined by Ryan et. al 2016 titled, “Crispr–cas9 genome engineering in Saccharomyces cerevisiae cells”.
 
-Dependencies for CRISPR designer can be found in [requirements.txt](https://github.com/Orpowell/CRISPR-Designer/requirements.txt), Python >=3.7 is also required.
+Dependencies for CRISPR designer can be found in [requirements.txt](https://github.com/Orpowell/CRISPR-Designer/blob/master/requirements.txt), Python >=3.7 is also required.
 
 ## Future Updates
 Future updates may include:
