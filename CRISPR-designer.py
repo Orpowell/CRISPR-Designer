@@ -229,8 +229,8 @@ def make_repair_template(amino_acid_position, nucleotide_target, selected_nucleo
                                    amino_acid_position - 30:amino_acid_position + 30]  # Create 60mer with 30 nt either side of mutation
 
         forward_primer_sequence = mutant_gene[(amino_acid_position - 81):(amino_acid_position - 31)] + mutant_gene[
-                                                                                                       (amino_acid_position - 30):(amino_acid_position - 20)]
-        reverse_primer_sequence = Seq(mutant_gene[(amino_acid_position + 20):(amino_acid_position + 30)] + mutant_gene[(amino_acid_position + 31):(
+                                                                                                       (amino_acid_position - 30):(amino_acid_position - 10)]
+        reverse_primer_sequence = Seq(mutant_gene[(amino_acid_position + 10):(amino_acid_position + 30)] + mutant_gene[(amino_acid_position + 30):(
                 amino_acid_position + 81)]).reverse_complement()
         full_template = mutant_gene[(amino_acid_position - 81):(amino_acid_position + 81)]
 
