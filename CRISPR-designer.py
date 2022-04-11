@@ -228,11 +228,11 @@ def make_repair_template(amino_acid_position, nucleotide_target, selected_nucleo
         repair_template_sequence = mutant_gene[
                                    amino_acid_position - 30:amino_acid_position + 30]  # Create 60mer with 30 nt either side of mutation
 
-        forward_primer_sequence = mutant_gene[(amino_acid_position - 81):(amino_acid_position - 31)] + mutant_gene[
+        forward_primer_sequence = mutant_gene[(amino_acid_position - 80):(amino_acid_position - 30)] + mutant_gene[
                                                                                                        (amino_acid_position - 30):(amino_acid_position - 10)]
         reverse_primer_sequence = Seq(mutant_gene[(amino_acid_position + 10):(amino_acid_position + 30)] + mutant_gene[(amino_acid_position + 30):(
-                amino_acid_position + 81)]).reverse_complement()
-        full_template = mutant_gene[(amino_acid_position - 81):(amino_acid_position + 81)]
+                amino_acid_position + 80)]).reverse_complement()
+        full_template = mutant_gene[(amino_acid_position - 80):(amino_acid_position + 80)]
 
     # Used to make repair template if mutant codon is within 60 nt of a PAM site
     else:
@@ -249,10 +249,10 @@ def make_repair_template(amino_acid_position, nucleotide_target, selected_nucleo
         mutant_gene = "".join(mutant_seq)
         repair_template_sequence = mutant_gene[minimum:maximum]  # Make repair template
 
-        forward_primer_sequence = mutant_gene[(minimum - 51):(minimum - 1)] + mutant_gene[minimum:(minimum + 20)]
+        forward_primer_sequence = mutant_gene[(minimum - 50):minimum] + mutant_gene[minimum:(minimum + 20)]
         reverse_primer_sequence = Seq(
-            mutant_gene[(maximum - 20):maximum] + mutant_gene[(maximum + 1):(maximum + 50)]).reverse_complement()
-        full_template = mutant_gene[(minimum - 51):(maximum + 51)]
+            mutant_gene[(maximum - 20):maximum] + mutant_gene[maximum:(maximum + 50)]).reverse_complement()
+        full_template = mutant_gene[(minimum - 50):(maximum + 50)]
 
     return repair_template_sequence, forward_primer_sequence, reverse_primer_sequence, full_template
 
@@ -310,11 +310,13 @@ if __name__ == '__main__':
 
     with open(file_name, 'w+') as file:
         file.write(f'{file_name}\n')
-        file.write(f' \n> Protein sequence\n{record.seq.translate()}\n')
-        file.write(f' \n> Nucleotide sequence\n{record.seq}\n')
-        file.write(f' \n> sgRNA forward primer\n{sgRNA_forward} \n')
-        file.write(f' \n> sgRNA reverse primer\n{sgRNA_reverse}\n')
-        file.write(f' \n> repair template\n{repair_template}\n')
-        file.write(f" \n> forward repair template primer\n{forward_primer}\n")
-        file.write(f' \n> reverse repair template primer\n{reverse_primer}\n')
-        file.write(f' \n> full repair template\n{full_repair_template}\n')
+        file.write(f' \n> Protein sequence {len(record.seq.translate())} aa\n{record.seq.translate()}\n')
+        file.write(f' \n> Nucleotide sequence {len(record.seq)} bp\n{record.seq}\n')
+        file.write(f' \n> sgRNA forward primer {len(sgRNA_forward)} bp\n{sgRNA_forward} \n')
+        file.write(f' \n> sgRNA reverse primer {len(sgRNA_reverse)} bp\n{sgRNA_reverse}\n')
+        file.write(f' \n> repair template ({len(repair_template)} bp)\n{repair_template}\n')
+        file.write(f" \n> forward repair template primer {len(forward_primer)} bp\n{forward_primer}\n")
+        file.write(f' \n> reverse repair template primer {len(reverse_primer)} bp\n{reverse_primer}\n')
+        file.write(f' \n> full repair template {len(full_repair_template)} bp\n{full_repair_template}\n')
+
+#S288C_YMR202W_ERG2_coding.fsa
