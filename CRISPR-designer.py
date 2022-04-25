@@ -5,63 +5,176 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 
+codon_table = codontab = {
+    'TCA': 'S',  # Serina
+    'TCC': 'S',  # Serina
+    'TCG': 'S',  # Serina
+    'TCT': 'S',  # Serina
+    'TTC': 'F',  # Fenilalanina
+    'TTT': 'F',  # Fenilalanina
+    'TTA': 'L',  # Leucina
+    'TTG': 'L',  # Leucina
+    'TAC': 'Y',  # Tirosina
+    'TAT': 'Y',  # Tirosina
+    'TAA': '*',  # Stop
+    'TAG': '*',  # Stop
+    'TGC': 'C',  # Cisteina
+    'TGT': 'C',  # Cisteina
+    'TGA': '*',  # Stop
+    'TGG': 'W',  # Triptofano
+    'CTA': 'L',  # Leucina
+    'CTC': 'L',  # Leucina
+    'CTG': 'L',  # Leucina
+    'CTT': 'L',  # Leucina
+    'CCA': 'P',  # Prolina
+    'CCC': 'P',  # Prolina
+    'CCG': 'P',  # Prolina
+    'CCT': 'P',  # Prolina
+    'CAC': 'H',  # Histidina
+    'CAT': 'H',  # Histidina
+    'CAA': 'Q',  # Glutamina
+    'CAG': 'Q',  # Glutamina
+    'CGA': 'R',  # Arginina
+    'CGC': 'R',  # Arginina
+    'CGG': 'R',  # Arginina
+    'CGT': 'R',  # Arginina
+    'ATA': 'I',  # Isoleucina
+    'ATC': 'I',  # Isoleucina
+    'ATT': 'I',  # Isoleucina
+    'ATG': 'M',  # Methionina
+    'ACA': 'T',  # Treonina
+    'ACC': 'T',  # Treonina
+    'ACG': 'T',  # Treonina
+    'ACT': 'T',  # Treonina
+    'AAC': 'N',  # Asparagina
+    'AAT': 'N',  # Asparagina
+    'AAA': 'K',  # Lisina
+    'AAG': 'K',  # Lisina
+    'AGC': 'S',  # Serina
+    'AGT': 'S',  # Serina
+    'AGA': 'R',  # Arginina
+    'AGG': 'R',  # Arginina
+    'GTA': 'V',  # Valina
+    'GTC': 'V',  # Valina
+    'GTG': 'V',  # Valina
+    'GTT': 'V',  # Valina
+    'GCA': 'A',  # Alanina
+    'GCC': 'A',  # Alanina
+    'GCG': 'A',  # Alanina
+    'GCT': 'A',  # Alanina
+    'GAC': 'D',  # Acido Aspartico
+    'GAT': 'D',  # Acido Aspartico
+    'GAA': 'E',  # Acido Glutamico
+    'GAG': 'E',  # Acido Glutamico
+    'GGA': 'G',  # Glicina
+    'GGC': 'G',  # Glicina
+    'GGG': 'G',  # Glicina
+    'GGT': 'G'  # Glicina
+}
 
-# Get path for fasta file containing sequence
-def get_sequence():
-    path = input('File Path: ')
 
-    try:
-        # Parse fasta file into Biopython Seq object
-        for sequence in SeqIO.parse(path, "fasta"):
-            print(f'Nucleotide Sequence:\n\n{sequence.seq}\n')  # Print Nucleotide sequence
-            print(f'Protein Sequence:\n\n{sequence.seq.translate()}\n')  # Print protein sequence
-            return sequence
+class Designer:
+    def __init__(self, sequence, amino_acid_position, amino_acid_mutation, output):
+        # Initialise inputs
+        self.sequence = sequence
+        self.amino_acid_position = amino_acid_position
+        self.codon_position = (self.amino_acid_position * 3) - 3
+        self.amino_acid_mutation = amino_acid_mutation
+        self.output = output
 
-    except FileNotFoundError:
-        print('Error: File not Found...')
-        retry = get_sequence()
-        return retry
+        # Data outputs
+        self.sgRNA_forward = None
+        self.sgRNA_reverse = None
+        self.repair_template_sequence = None
+        self.forward_primer_sequence = None
+        self.reverse_primer_sequence = None
 
+    # Make sgRNAs
+    def make_sgRNAs(self):
 
-# Search for all PAM sites in sequence, returns list of PAM sites
-def find_PAM(sequence):
-    i = 0
-    positions = []  # List for pam sites positions
+        def quadruple_nucleotide_check(sequence):
+            quadruplet = re.compile("([T])\\1\\1\\1")  # Regular expression for TTTT
+            check = re.search(quadruplet, sequence)  # Search given sequence for RE
 
-    # Search through sequence 2 base pairs at a time
-    for _ in sequence:
-        codon = sequence[i:i + 2]
-        i += 1
+            if check is not None:  # If RE is present returns false
+                return False
+            else:  # If RE not found return true
+                return True
 
-        # If a PAM site is found store the position of the second base pair in PAM
-        if codon == 'GG':
-            pam_position = i + 1  # Store position of last base of PAM site
-            positions.append(pam_position)  # Store value in a list
+        def find_20mers(site, sequence):
+            identified_20mer = sequence[0:site][-23:]  # Store upstream sequence
+            the_20mer = identified_20mer[:-3]  # Remove PAM site
 
-    return positions  # Return complete list of PAM sites in sequence
+            quadruple = quadruple_nucleotide_check(
+                str(identified_20mer))  # Check for 4 consecutive thymine bases in 20mer
 
+            # If no quadruple bases found return start and end position and sequence of 20mer
+            if quadruple:
+                return [the_20mer]
 
-# Check for stretch of sequences containing 4 or more of the same nucleotide
-def quadruple_nucleotide_check(x):
-    p = re.compile("([T])\\1\\1\\1")  # Regular expression for TTTT
-    a = re.search(p, x)  # Search given sequence for RE
+        # define search region for PAM sites within 22 nt upstream of codon
+        search_region = self.sequence[self.codon_position: self.codon_position + 22]
 
-    if a is not None:  # If RE is present returns false
-        return False
-    else:  # If RE not found return true
-        return True
+        i = 0
+        pam_sites = []
+        for _ in search_region:
+            codon = search_region[i:i + 2]
+            i += 1
 
+            # If a PAM site is found store the position of the second base pair in PAM
+            if codon == 'GG':
+                pam_position = i + 1  # Store position of last base of PAM site
+                pam_sites.append(pam_position + self.codon_position)  # Store value in a list
 
-# Identify the 20 nucleotides upstream of a PAM site, check its contain less than 4 consecutive thymine bases
-def find_20mers(site, sequence):
-    identified_20mer = sequence[0:site][-23:]  # Store upstream sequence
-    the_20mer = identified_20mer[:-3]  # Remove PAM site
+        test = [find_20mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
 
-    quadruple = quadruple_nucleotide_check(str(identified_20mer))  # Check for 4 consecutive thymine bases in 20mer
+        result = filter(lambda x: x is not None, test)  # Remove None values
+        oligos = list(result)
 
-    # If no quadruple bases found return start and end position and sequence of 20mer
-    if quadruple:
-        return [site - 23, site - 3, the_20mer]
+        oligo = oligos[-1][0]
+
+        front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
+        back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
+
+        sgRNA = front + oligo.lower() + back
+
+        self.sgRNA_forward = sgRNA
+        self.sgRNA_reverse = str(Seq(sgRNA).reverse_complement())
+
+    # get sgRNAs
+    def get_sgRNA(self):
+        print(self.sgRNA_forward)
+        print(self.sgRNA_reverse)
+
+    # Make Repair template
+    def make_repair_template(self):
+        codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
+
+        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
+            list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
+
+        mutant_gene = "".join(codon_list)
+        repair_template_sequence = mutant_gene[
+                                   self.codon_position - 30:self.codon_position + 30]  # Create 60mer with 30 nt either side of mutation
+
+        forward_primer_sequence = mutant_gene[(self.codon_position - 80):(self.codon_position - 30)] + mutant_gene[
+                                                                                                       (
+                                                                                                               self.codon_position - 30):(
+                                                                                                               self.codon_position - 10)]
+        reverse_primer_sequence = Seq(mutant_gene[(self.codon_position + 10):(self.codon_position + 30)] + mutant_gene[(
+                                                                                                                               self.codon_position + 30):(
+                                                                                                                               self.codon_position + 80)]).reverse_complement()
+        full_template = mutant_gene[(self.codon_position - 80):(self.codon_position + 80)]
+
+        self.repair_template_sequence = repair_template_sequence
+        self.forward_primer_sequence = forward_primer_sequence
+        self.reverse_primer_sequence = reverse_primer_sequence
+
+    def get_template(self):
+        print(self.repair_template_sequence)
+        print(self.forward_primer_sequence)
+        print(self.reverse_primer_sequence)
+
 
 
 def find_60mers(site, sequence):
@@ -73,63 +186,6 @@ def find_60mers(site, sequence):
     # If no quadruple bases found return start and end position and sequence of 20mer
     if quadruple:
         return [site - 63, site - 3, the_60mer]
-
-
-# Get position of target amino acid, identify corresponding base and desired mutation
-def get_codon():
-    residue_number = input('Input residue position: ')  # Collect amino acid position
-    try:
-        residue_number = int(residue_number)
-
-        if residue_number <= len(record.seq.translate()):
-            codon_start = (residue_number * 3) - 3  # Calculate start position of codon in nucleotide sequence
-            codon = record.seq[codon_start:codon_start + 3]  # Identify full codon sequence (3 Base pairs)
-
-            print(f'Target is: {codon.translate()} @ position {residue_number}')  # Print amino acid and location
-            return codon, codon_start
-
-        else:
-            print('Error: position outside protein sequence length')
-            retry = get_codon()
-            return retry
-
-    except ValueError:
-        print('Error: position must be an integer')
-        retry = get_codon()
-        return retry
-
-
-# Check the target codon is within 20 or 60 nucleotides of a PAM site
-def check_in_oligomer(codon_start, i, mode=1):
-    minimum_oligomer = result[i][0]
-    maximum_oligomer = result[i][1]
-
-    # if codon is within 20 nucleotides of a PAM site
-    if mode == 1:
-        if (codon_start < maximum_oligomer) & (minimum_oligomer < codon_start):
-            return result[i][2]
-
-    # if codon is within 60 nucleotides of a PAM site
-    else:
-        if (codon_start < maximum_oligomer) & (minimum_oligomer < codon_start):
-            return [result[i][2], maximum_oligomer, minimum_oligomer]
-
-
-# Find all 20mers that contain the target codon and determine best one (last one, so more in the middle), exit program if none are found.
-def within_20mer(codon_position):
-    # Generate list of all 20mers containing target codon
-    possible = list(filter(lambda x: x is not None, [check_in_oligomer(codon_position, i) for i in range(len(result))]))
-
-    # select and return best 20mer
-    try:
-        best_match = possible[-1]
-        print('Codon is present within 20nt of a PAM site\n')
-        return best_match, 0
-
-    # If no 20mer is found, exit program
-    except IndexError:
-        print('\nNo 20mers found, searching for 60mers...\n')
-        return None, 1
 
 
 def within_60mer(codon_position):
@@ -150,88 +206,24 @@ def within_60mer(codon_position):
         print('Error: Target codon is not within 20 or 60 nucleotides of a PAM site...')
 
 
-# Provide interface for mutating codon, and determines which base in the codon will mutate and to what base
-def codon_mutator(codon, codon_position):
-    # get position of base to mutate within codon (1,2,3)
-    def get_position():
-        base_position = input('Which nucleotide do you want to mutate? (1,2 or 3)')  # collect base position
-
-        # Check input is an integer
-        try:
-            base_1 = int(base_position)
-
-            # Check input is a number between 1 and 3 or ask for input again
-            if base_1 not in [1, 2, 3]:
-                print('Please select a number from 1-3')
-                restart = get_position()
-                return restart
-
-            # Convert input from Base1 to Base0 and return value
-            else:
-                base_0 = base_1 - 1
-                return base_0
-
-        # If value is not an integer ask for input again
-        except ValueError:
-            print('Error: Please use integer')
-            restart = get_position()
-            return restart
-
-    # Collect what mutation to make within codon
-    def get_nucleotide():
-        # Get the base for the desired mutation
-        nucleotide_change = input('What nucleotide you do want to replace your target with? (A,T,G or C)')
-
-        # Check input is A, T, G or C or ask for input again
-        if nucleotide_change not in ['A', 'T', 'G', 'C']:
-            print('Please select a base from A, T, G or C')
-            restart = get_nucleotide()
-            return restart
-
-        # Return nucleotide if correct
-        else:
-            return nucleotide_change
-
-    codon = str(codon)  # Convert codon to string from Seq object for manipulation
-    print(codon, '\n123')  # Show user target codon174
-    base = get_position()  # Collect position of mutation site within codon
-    mutant_nucleotide = get_nucleotide()  # collect what mutation to make at site within codon
-
-    codon_list = list(codon)  # Separate target codon into list of 3 characters
-    codon_list[base] = mutant_nucleotide  # Mutate codon as requested
-    mutant_codon = "".join(codon_list)  # Create string of mutant codon
-
-    print(
-        f"Mutating {Seq(codon).translate()} ---> {Seq(mutant_codon).translate()}\n")  # Show effect of mutation on amino acid output
-    mutation_site = base + codon_position  # calculate site of mutation in global sequence
-
-    return mutant_nucleotide, mutation_site  # return mutated nucleotide and position
-
-
-# Generate sgRNA 60mer for insertion into pCAS
-def make_sgRNA(oligo):
-    front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
-    back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
-
-    sgRNA = front + oligo.lower() + back  # Generate complete 60mer
-
-    return sgRNA, Seq(sgRNA).reverse_complement()
-
-
 # Create 60mer repair template containing desired mutation
 def make_repair_template(amino_acid_position, nucleotide_target, selected_nucleotide, mode=1):
     # Used to make repair template if mutant codon is within 20 nt of a PAM site
     if mode == 1:
         mutant_seq = list(record.seq)  # convert entire protein sequence to list
-        mutant_seq[nucleotide_target] = selected_nucleotide.lower()  # implement mutation as lower case to highlight in final result
+        mutant_seq[
+            nucleotide_target] = selected_nucleotide.lower()  # implement mutation as lower case to highlight in final result
         mutant_gene = "".join(mutant_seq)
         repair_template_sequence = mutant_gene[
                                    amino_acid_position - 30:amino_acid_position + 30]  # Create 60mer with 30 nt either side of mutation
 
         forward_primer_sequence = mutant_gene[(amino_acid_position - 80):(amino_acid_position - 30)] + mutant_gene[
-                                                                                                       (amino_acid_position - 30):(amino_acid_position - 10)]
-        reverse_primer_sequence = Seq(mutant_gene[(amino_acid_position + 10):(amino_acid_position + 30)] + mutant_gene[(amino_acid_position + 30):(
-                amino_acid_position + 80)]).reverse_complement()
+                                                                                                       (
+                                                                                                               amino_acid_position - 30):(
+                                                                                                               amino_acid_position - 10)]
+        reverse_primer_sequence = Seq(mutant_gene[(amino_acid_position + 10):(amino_acid_position + 30)] + mutant_gene[(
+                                                                                                                               amino_acid_position + 30):(
+                                                                                                                               amino_acid_position + 80)]).reverse_complement()
         full_template = mutant_gene[(amino_acid_position - 80):(amino_acid_position + 80)]
 
     # Used to make repair template if mutant codon is within 60 nt of a PAM site
@@ -258,7 +250,7 @@ def make_repair_template(amino_acid_position, nucleotide_target, selected_nucleo
 
 
 if __name__ == '__main__':
-
+    '''
     record = get_sequence()  # Convert Fasta file to Seq object
 
     pam_sites = find_PAM(record.seq)  # Identify PAM sites
@@ -314,9 +306,17 @@ if __name__ == '__main__':
         file.write(f' \n> Nucleotide sequence {len(record.seq)} bp\n{record.seq}\n')
         file.write(f' \n> sgRNA forward primer {len(sgRNA_forward)} bp\n{sgRNA_forward} \n')
         file.write(f' \n> sgRNA reverse primer {len(sgRNA_reverse)} bp\n{sgRNA_reverse}\n')
-        file.write(f' \n> repair template ({len(repair_template)} bp)\n{repair_template}\n')
+        file.write(f' \n> repair template {len(repair_template)}\n{repair_template}\n')
         file.write(f" \n> forward repair template primer {len(forward_primer)} bp\n{forward_primer}\n")
         file.write(f' \n> reverse repair template primer {len(reverse_primer)} bp\n{reverse_primer}\n')
         file.write(f' \n> full repair template {len(full_repair_template)} bp\n{full_repair_template}\n')
+    '''
+    # S288C_YMR202W_ERG2_coding.fsa
 
-#S288C_YMR202W_ERG2_coding.fsa
+    sequence = 'ATGAAGTTTTTCCCACTCCTTTTGTTGATTGGTGTTGTAGGCTACATTATGAACGTATTGTTCACTACCTGGTTGCCAACCAATTACATGTTCGATCCAAAAACTTTGAACGAAATATGTAACTCGGTGATTAGCAAACACAACGCAGCAGAAGGTTTATCCACTGAAGACCTGTTACAGGATGTCAGAGACGCACTTGCCTCTCATTACGGGGACGAATACATCAACAGGTACGTCAAAGAAGAATGGGTCTTCAACAATGCTGGTGGTGCGATGGGCCAAATGATCATCCTACACGCTTCCGTATCCGAGTACTTAATTCTATTCGGAACCGCTGTTGGTACTGAAGGGCACACAGGTGTTCACTTTGCTGACGACTATTTTACCATCTTACATGGTACGCAAATCGCAGCATTGCCATATGCCACTGAAGCCGAAGTTTACACTCCTGGTATGACTCATCACTTGAAGAAGGGATACGCCAAGCAATACAGCATGCCAGGTGGTTCCTTTGCCCTTGAATTGGCTCAAGGCTGGATTCCATGTATGTTGCCATTCGGGTTTTTGGACACTTTCTCCAGTACTCTTGATTTATACACTCTATATAGAACTGTCTACCTGACTGCCAGGGACATGGGTAAGAACTTGTTGCAAAACAAAAAGTTCTAA'
+
+    obj1 = Designer(sequence, 174, 'Q', 'Home')
+    obj1.make_sgRNAs()
+    obj1.get_sgRNA()
+    obj1.make_repair_template()
+    obj1.get_template()
