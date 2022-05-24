@@ -1,9 +1,10 @@
-#!/usr/local/bin/python3.7
+#!/usr/local/bin/python3
 
 import re
 import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
+import argparse
 
 codon_table = codontab = {
     'TCA': 'S',  # Serina
@@ -121,9 +122,9 @@ class Output:
 class sgRNA:
     def __init__(self, nucleotide_sequence, amino_acid_position):
         self.sequence = nucleotide_sequence
-        self.__codon_position = (amino_acid_position * 3) - 3
-        self.__sgRNA_forward = None
-        self.__sgRNA_reverse = None
+        self.codon_position = (amino_acid_position * 3) - 3
+        self._sgRNA_forward = None
+        self._sgRNA_reverse = None
 
     # Make sgRNAs
     def make_sgRNAs(self):
@@ -149,7 +150,7 @@ class sgRNA:
                 return the_20mer
 
         # define search region for PAM sites within 22 nt upstream of codon
-        search_region = self.sequence[self.__codon_position: self.__codon_position + 22]
+        search_region = self.sequence[self.codon_position: self.codon_position + 22]
         i = 0
         pam_sites = []
         for _ in search_region:
@@ -159,7 +160,7 @@ class sgRNA:
             # If a PAM site is found store the position of the second base pair in PAM
             if codon == 'GG':
                 pam_position = i + 1  # Store position of last base of PAM site
-                pam_sites.append(pam_position + self.__codon_position)  # Store value in a list
+                pam_sites.append(pam_position + self.codon_position)  # Store value in a list
 
         test = [find_20mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
 
@@ -172,12 +173,12 @@ class sgRNA:
 
         indentified_sgRNA = front + oligo.lower() + back
 
-        self.__sgRNA_forward = indentified_sgRNA
-        self.__sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
+        self._sgRNA_forward = indentified_sgRNA
+        self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
 
     # get sgRNAs
     def get_sgRNA(self):
-        return self.__sgRNA_forward, self.__sgRNA_reverse
+        return self._sgRNA_forward, self._sgRNA_reverse
 
 
 class RepairTemplate:
@@ -223,21 +224,75 @@ class RepairTemplate:
         return self.forward_primer_sequence, self.reverse_primer_sequence, self.repair_template_sequence, self.full_template_sequence
 
 
+class MutantDesigner:
+    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, output):
+        self.sgRNAs = sgRNA(nucleotide_sequence, amino_acid_position)
+        self.template = RepairTemplate(nucleotide_sequence, amino_acid_position, amino_acid_mutation)
+        self.output_file = Output(output)
+
+    def design(self):
+        self.sgRNAs.make_sgRNAs()
+        self.template.make_repair_template()
+        self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
+        self.output_file.set_template_sequences(*self.template.get_template())
+        self.output_file.check_ouput_file()
+
+
+def cmd_lineparser():
+    parser = argparse.ArgumentParser(prog='CRISPR-Designer', add_help=False,
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    group_inputs = parser.add_argument_group('Inputs')
+
+    # Get path to fasta file containing protein sequence
+    group_inputs.add_argument('-s', '--sequence', metavar='\b', type=str, action='store',
+                              help='path to fasta file',
+                              default=None)
+    # Get position of amino acid target
+    group_inputs.add_argument('-p', '--position', metavar='\b', type=str, action='store',
+                              help='position of target amino acid',
+                              default=None)
+
+    # Get amino acid to be replacement
+    group_inputs.add_argument('-m', '--mutant', metavar='\b', type=str, action='store',
+                              help='mutation of target amino acid',
+                              default=None)
+
+    group_output = parser.add_argument_group('Outputs')
+    # Get output directory
+    group_output.add_argument('-o', '--output', metavar='\b', type=str, action='store',
+                              help='directory to store output file', default=None)
+
+    group_options = parser.add_argument_group('Options')
+    # Get Version
+    group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.0.0')
+    # Get help
+    group_options.add_argument("-h", "--help", action="help", help="show this help message and exit\n ")
+
+    # Parse arguments
+    arguments = parser.parse_args()
+    input_list = [arguments.sequence, arguments.position, arguments.mutant, arguments.output]
+
+    # If all arguments are None display help text by parsing help
+    if input_list.count(input_list[0]) == len(input_list):
+        parser.parse_args(['-h'])
+
+    return arguments
+
+
+# Open fasta file from path provided
+def open_fasta(path):
+    # Parse fasta file into Biopython Seq object
+    for dna_sequence in SeqIO.parse(path, "fasta"):
+        return str(dna_sequence)
+
+
 if __name__ == '__main__':
     # S288C_YMR202W_ERG2_coding.fsa
 
     sequence = 'ATGAAGTTTTTCCCACTCCTTTTGTTGATTGGTGTTGTAGGCTACATTATGAACGTATTGTTCACTACCTGGTTGCCAACCAATTACATGTTCGATCCAAAAACTTTGAACGAAATATGTAACTCGGTGATTAGCAAACACAACGCAGCAGAAGGTTTATCCACTGAAGACCTGTTACAGGATGTCAGAGACGCACTTGCCTCTCATTACGGGGACGAATACATCAACAGGTACGTCAAAGAAGAATGGGTCTTCAACAATGCTGGTGGTGCGATGGGCCAAATGATCATCCTACACGCTTCCGTATCCGAGTACTTAATTCTATTCGGAACCGCTGTTGGTACTGAAGGGCACACAGGTGTTCACTTTGCTGACGACTATTTTACCATCTTACATGGTACGCAAATCGCAGCATTGCCATATGCCACTGAAGCCGAAGTTTACACTCCTGGTATGACTCATCACTTGAAGAAGGGATACGCCAAGCAATACAGCATGCCAGGTGGTTCCTTTGCCCTTGAATTGGCTCAAGGCTGGATTCCATGTATGTTGCCATTCGGGTTTTTGGACACTTTCTCCAGTACTCTTGATTTATACACTCTATATAGAACTGTCTACCTGACTGCCAGGGACATGGGTAAGAACTTGTTGCAAAACAAAAAGTTCTAA'
 
-    # Make sgRNA
-    sgRNAs = sgRNA(sequence, 174)
-    sgRNAs.make_sgRNAs()
-
-    # Make template
-    template = RepairTemplate(sequence, 174, 'Q')
-    template.make_repair_template()
-
-    # Build Template
-    output = Output('Home')
-    output.set_sgRNA_sequences(*sgRNAs.get_sgRNA())
-    output.set_template_sequences(*template.get_template())
-    output.check_ouput_file()
+    args = cmd_lineparser()
+    sequence = open_fasta(args.sequence)
+    design = MutantDesigner(sequence, 174, 'Q', 'home')
+    design.design()
