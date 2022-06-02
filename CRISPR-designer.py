@@ -74,6 +74,191 @@ codon_table = codontab = {
 }
 
 
+# sgRNA designer class
+class sgRNA:
+    def __init__(self, nucleotide_sequence, amino_acid_position):
+        self.sequence = nucleotide_sequence
+        self.codon_position = (amino_acid_position * 3) - 3
+        self._sgRNA_forward = None
+        self._sgRNA_reverse = None
+        self._60mer_switch = None
+
+    # Make sgRNAs
+    def make_sgRNAs(self):
+
+        def quadruple_nucleotide_check(nucleotide_sequence):
+            quadruplet = re.compile("([T])\\1\\1\\1")  # Regular expression for TTTT
+            check = re.search(quadruplet, nucleotide_sequence)  # Search given sequence for RE
+
+            if check is not None:  # If RE is present returns false
+                return False
+            else:  # If RE not found return true
+                return True
+
+        def find_pam_sites(xmer):
+            # define search region for PAM sites within 22 nt upstream of codon
+            search_region = self.sequence[self.codon_position: self.codon_position + xmer]
+            i = 0
+            pam_positions = []
+            for _ in search_region:
+                codon = search_region[i:i + 2]
+                i += 1
+
+                # If a PAM site is found store the position of the second base pair in PAM
+                if codon == 'GG':
+                    pam_position = i + 1  # Store position of last base of PAM site
+                    pam_positions.append(pam_position + self.codon_position)  # Store value in a list
+
+            return pam_positions
+
+        def find_20mers(site, nucleotide_sequence):
+            identified_20mer = nucleotide_sequence[0:site][-23:]  # Store upstream sequence
+            the_20mer = identified_20mer[:-3]  # Remove PAM site
+
+            quadruple = quadruple_nucleotide_check(
+                str(identified_20mer))  # Check for 4 consecutive thymine bases in 20mer
+
+            # If no quadruple bases found return start and end position and sequence of 20mer
+            if quadruple:
+                return the_20mer
+
+        def find_60mers(site, nucleotide_sequence):
+            identified_60mer = nucleotide_sequence[0:site][-63:]  # Store upstream sequence
+            the_60mer = identified_60mer[:-3]  # Remove PAM site
+
+            quadruple = quadruple_nucleotide_check(
+                str(identified_60mer))  # Check for 4 consecutive thymine bases in 20mer
+
+            # If no quadruple bases found return start and end position and sequence of 20mer
+            if quadruple:
+                return [the_60mer, site]
+
+        try:
+            pam_sites = find_pam_sites(22)
+
+            test = [find_20mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
+
+            result = [oligo for oligo in test if oligo is not None]  # Remove None values
+
+            oligo = result[-1]
+
+            front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
+            back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
+
+            indentified_sgRNA = front + oligo.lower() + back
+
+            self._sgRNA_forward = indentified_sgRNA
+            self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
+
+        except IndexError:
+            pam_sites = find_pam_sites(62)
+
+            test = [find_60mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
+
+            result = [oligo for oligo in test if oligo[0] is not None]  # Remove None values
+
+            oligo = result[-1][0][-20:]
+
+            front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
+            back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
+
+            indentified_sgRNA = front + oligo.lower() + back
+
+            self._sgRNA_forward = indentified_sgRNA
+            self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
+            self._60mer_switch = result[-1][1] // 3
+
+            print(self._sgRNA_forward)
+            print(self._sgRNA_reverse)
+
+            print('Gotta do the 60 bro')
+
+    # get sgRNAs
+    def get_sgRNA(self):
+        return self._sgRNA_forward, self._sgRNA_reverse
+
+    def get_switch(self):
+        return self._60mer_switch
+
+
+# Repair Template Designer class
+class RepairTemplate:
+    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation):
+        # Initialise inputs
+        self.sequence = nucleotide_sequence
+        self.amino_acid_position = amino_acid_position
+        self.codon_position = (self.amino_acid_position * 3) - 3
+        self.amino_acid_mutation = amino_acid_mutation
+        self._switch = None
+
+        # Data outputs
+        self.repair_template_sequence = None
+        self.forward_primer_sequence = None
+        self.reverse_primer_sequence = None
+        self.full_template_sequence = None
+
+    # Make Repair template for 20mer
+    def make_repair_template_for_20mer(self):
+        codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
+
+        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
+            list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
+
+        mutant_gene = "".join(codon_list)
+        repair_template_sequence = mutant_gene[
+                                   self.codon_position - 30:self.codon_position + 30]  # Create 60mer with 30 nt either side of mutation
+        forward_primer_sequence = mutant_gene[(self.codon_position - 80):(self.codon_position - 10)]
+        reverse_primer_sequence = Seq(
+            mutant_gene[(self.codon_position + 10):(self.codon_position + 80)]).reverse_complement()
+        full_template = mutant_gene[(self.codon_position - 80):(self.codon_position + 80)]
+
+        self.repair_template_sequence = repair_template_sequence
+        self.forward_primer_sequence = forward_primer_sequence
+        self.reverse_primer_sequence = reverse_primer_sequence
+        self.full_template_sequence = full_template
+
+    def make_repair_template_for_60mer(self):
+        codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
+
+        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
+            list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
+
+        synonymous_mutation_site = self._switch - 5
+        aa = Seq(codon_list[synonymous_mutation_site]).translate()
+        codon_list[synonymous_mutation_site] = (list(codon_table.keys())[list(codon_table.values()).index(aa)]).lower()
+
+        mutant_gene = "".join(codon_list)
+
+        core_start = self.codon_position - 12
+        core_end = self.codon_position + 48
+
+        repair_template_sequence = mutant_gene[core_start:core_end]
+        forward_primer_sequence = mutant_gene[core_start - 50:core_start + 20]
+        reverse_primer_sequence = Seq(mutant_gene[core_end - 20:core_end + 50]).reverse_complement()
+        full_template = mutant_gene[(core_start - 50):(core_end + 50)]
+
+        self.repair_template_sequence = repair_template_sequence
+        self.forward_primer_sequence = forward_primer_sequence
+        self.reverse_primer_sequence = reverse_primer_sequence
+        self.full_template_sequence = full_template
+
+    def design_template(self):
+        if type(self._switch) is int:
+            print('ha')
+            self.make_repair_template_for_60mer()
+            print(self.full_template_sequence)
+
+        else:
+            self.make_repair_template_for_20mer()
+
+    def get_template(self):
+        return self.forward_primer_sequence, self.reverse_primer_sequence, self.repair_template_sequence, self.full_template_sequence
+
+    def set_switch(self, x):
+        self._switch = x
+
+
+# Output data (all sequences) class
 class Output:
 
     def __init__(self, output_path):
@@ -119,111 +304,7 @@ class Output:
             f' \n> full repair template {len(self.full_repair_template_sequence)} bp\n{self.full_repair_template_sequence}\n')
 
 
-class sgRNA:
-    def __init__(self, nucleotide_sequence, amino_acid_position):
-        self.sequence = nucleotide_sequence
-        self.codon_position = (amino_acid_position * 3) - 3
-        self._sgRNA_forward = None
-        self._sgRNA_reverse = None
-
-    # Make sgRNAs
-    def make_sgRNAs(self):
-
-        def quadruple_nucleotide_check(nucleotide_sequence):
-            quadruplet = re.compile("([T])\\1\\1\\1")  # Regular expression for TTTT
-            check = re.search(quadruplet, nucleotide_sequence)  # Search given sequence for RE
-
-            if check is not None:  # If RE is present returns false
-                return False
-            else:  # If RE not found return true
-                return True
-
-        def find_20mers(site, nucleotide_sequence):
-            identified_20mer = nucleotide_sequence[0:site][-23:]  # Store upstream sequence
-            the_20mer = identified_20mer[:-3]  # Remove PAM site
-
-            quadruple = quadruple_nucleotide_check(
-                str(identified_20mer))  # Check for 4 consecutive thymine bases in 20mer
-
-            # If no quadruple bases found return start and end position and sequence of 20mer
-            if quadruple:
-                return the_20mer
-
-        # define search region for PAM sites within 22 nt upstream of codon
-        search_region = self.sequence[self.codon_position: self.codon_position + 22]
-        i = 0
-        pam_sites = []
-        for _ in search_region:
-            codon = search_region[i:i + 2]
-            i += 1
-
-            # If a PAM site is found store the position of the second base pair in PAM
-            if codon == 'GG':
-                pam_position = i + 1  # Store position of last base of PAM site
-                pam_sites.append(pam_position + self.codon_position)  # Store value in a list
-
-        test = [find_20mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
-
-        result = [oligo for oligo in test if oligo is not None]  # Remove None values
-
-        oligo = result[-1]
-
-        front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
-        back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
-
-        indentified_sgRNA = front + oligo.lower() + back
-
-        self._sgRNA_forward = indentified_sgRNA
-        self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
-
-    # get sgRNAs
-    def get_sgRNA(self):
-        return self._sgRNA_forward, self._sgRNA_reverse
-
-
-class RepairTemplate:
-    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation):
-        # Initialise inputs
-        self.sequence = nucleotide_sequence
-        self.amino_acid_position = amino_acid_position
-        self.codon_position = (self.amino_acid_position * 3) - 3
-        self.amino_acid_mutation = amino_acid_mutation
-
-        # Data outputs
-        self.repair_template_sequence = None
-        self.forward_primer_sequence = None
-        self.reverse_primer_sequence = None
-        self.full_template_sequence = None
-
-    # Make Repair template
-    def make_repair_template(self):
-        codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
-
-        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
-            list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
-
-        mutant_gene = "".join(codon_list)
-        repair_template_sequence = mutant_gene[
-                                   self.codon_position - 30:self.codon_position + 30]  # Create 60mer with 30 nt either side of mutation
-
-        forward_primer_sequence = mutant_gene[(self.codon_position - 80):(self.codon_position - 30)] + mutant_gene[
-                                                                                                       (
-                                                                                                               self.codon_position - 30):(
-                                                                                                               self.codon_position - 10)]
-        reverse_primer_sequence = Seq(mutant_gene[(self.codon_position + 10):(self.codon_position + 30)] + mutant_gene[(
-                                                                                                                               self.codon_position + 30):(
-                                                                                                                               self.codon_position + 80)]).reverse_complement()
-        full_template = mutant_gene[(self.codon_position - 80):(self.codon_position + 80)]
-
-        self.repair_template_sequence = repair_template_sequence
-        self.forward_primer_sequence = forward_primer_sequence
-        self.reverse_primer_sequence = reverse_primer_sequence
-        self.full_template_sequence = full_template
-
-    def get_template(self):
-        return self.forward_primer_sequence, self.reverse_primer_sequence, self.repair_template_sequence, self.full_template_sequence
-
-
+# Wrapper class for mutant design
 class MutantDesigner:
     def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, output):
         self.sgRNAs = sgRNA(nucleotide_sequence, amino_acid_position)
@@ -232,12 +313,14 @@ class MutantDesigner:
 
     def design(self):
         self.sgRNAs.make_sgRNAs()
-        self.template.make_repair_template()
+        self.template.set_switch(self.sgRNAs.get_switch())
+        self.template.design_template()
         self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
         self.output_file.set_template_sequences(*self.template.get_template())
         self.output_file.check_ouput_file()
 
 
+# Command Line Interface with Argparse
 def cmd_lineparser():
     parser = argparse.ArgumentParser(prog='CRISPR-Designer', add_help=False,
                                      formatter_class=argparse.RawTextHelpFormatter)
@@ -249,7 +332,7 @@ def cmd_lineparser():
                               help='path to fasta file',
                               default=None)
     # Get position of amino acid target
-    group_inputs.add_argument('-p', '--position', metavar='\b', type=str, action='store',
+    group_inputs.add_argument('-p', '--position', metavar='\b', type=int, action='store',
                               help='position of target amino acid',
                               default=None)
 
@@ -284,7 +367,7 @@ def cmd_lineparser():
 def open_fasta(path):
     # Parse fasta file into Biopython Seq object
     for dna_sequence in SeqIO.parse(path, "fasta"):
-        return str(dna_sequence)
+        return str(dna_sequence.seq)
 
 
 if __name__ == '__main__':
@@ -292,7 +375,14 @@ if __name__ == '__main__':
 
     sequence = 'ATGAAGTTTTTCCCACTCCTTTTGTTGATTGGTGTTGTAGGCTACATTATGAACGTATTGTTCACTACCTGGTTGCCAACCAATTACATGTTCGATCCAAAAACTTTGAACGAAATATGTAACTCGGTGATTAGCAAACACAACGCAGCAGAAGGTTTATCCACTGAAGACCTGTTACAGGATGTCAGAGACGCACTTGCCTCTCATTACGGGGACGAATACATCAACAGGTACGTCAAAGAAGAATGGGTCTTCAACAATGCTGGTGGTGCGATGGGCCAAATGATCATCCTACACGCTTCCGTATCCGAGTACTTAATTCTATTCGGAACCGCTGTTGGTACTGAAGGGCACACAGGTGTTCACTTTGCTGACGACTATTTTACCATCTTACATGGTACGCAAATCGCAGCATTGCCATATGCCACTGAAGCCGAAGTTTACACTCCTGGTATGACTCATCACTTGAAGAAGGGATACGCCAAGCAATACAGCATGCCAGGTGGTTCCTTTGCCCTTGAATTGGCTCAAGGCTGGATTCCATGTATGTTGCCATTCGGGTTTTTGGACACTTTCTCCAGTACTCTTGATTTATACACTCTATATAGAACTGTCTACCTGACTGCCAGGGACATGGGTAAGAACTTGTTGCAAAACAAAAAGTTCTAA'
 
-    args = cmd_lineparser()
-    sequence = open_fasta(args.sequence)
-    design = MutantDesigner(sequence, 174, 'Q', 'home')
+    # Test system
+    design = MutantDesigner(sequence, 135, 'Q', 'test.txt')  # system test
     design.design()
+
+'''
+    # Test interface
+    args = cmd_lineparser()  # command line
+    sequence = open_fasta(args.sequence)  # process fasta file
+    design = MutantDesigner(sequence, args.position, args.mutant, args.output)  # system test 
+    design.design()
+'''
