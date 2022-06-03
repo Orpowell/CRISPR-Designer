@@ -218,6 +218,11 @@ class RepairTemplate:
         self.full_template_sequence = full_template
 
     def make_repair_template_for_60mer(self):
+
+        def synonymous_mutator(target, present_codon):
+            synonymous_codons = [k for k, v in codon_table.items() if v == target and k != present_codon]
+            return synonymous_codons[0]
+
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
@@ -225,7 +230,9 @@ class RepairTemplate:
 
         synonymous_mutation_site = self._switch - 5
         aa = Seq(codon_list[synonymous_mutation_site]).translate()
-        codon_list[synonymous_mutation_site] = (list(codon_table.keys())[list(codon_table.values()).index(aa)]).lower()
+        # codon_list[synonymous_mutation_site] = (list(codon_table.keys())[list(codon_table.values()).index(aa)]).lower()
+
+        codon_list[synonymous_mutation_site] = synonymous_mutator(aa, codon_list[synonymous_mutation_site]).lower()
 
         mutant_gene = "".join(codon_list)
 

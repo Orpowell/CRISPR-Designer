@@ -1,4 +1,3 @@
-
 from Bio import SeqIO
 from Bio.Seq import Seq
 
@@ -71,26 +70,11 @@ codon_table = codontab = {
     'GGT': 'G'  # Glicina
 }
 
-aa_target = 173
 
-codon_list = [sequence[i:i + 3] for i in range(0, len(sequence), 3)]
+def synonymous_mutator(target, present_codon):
+    synonymous_codons = [k for k, v in codon_table.items() if v == target and k != present_codon]
+    return synonymous_codons[0]
 
-print(f'initial codon {codon_list[aa_target]}')
 
-aa = Seq(codon_list[aa_target]).translate()
-
-print(f'initial amino acid {aa}')
-
-codon_list[aa_target] = (list(codon_table.keys())[list(codon_table.values()).index(aa)])
-
-print(f'\nswitched codon {codon_list[aa_target]}')
-
-new_aa = Seq(codon_list[aa_target]).translate()
-print(f'switched amino acid {new_aa}')
-
-print(174*3-3)
-print(519//3)
-print(520//3)
-print(521//3)
-print(522//3)
+print(synonymous_mutator('S', 'TCA'))
 
