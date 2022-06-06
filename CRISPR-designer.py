@@ -2,11 +2,12 @@
 
 import re
 import sys
+import os
 from Bio import SeqIO
 from Bio.Seq import Seq
 import argparse
 
-codon_table = codontab = {
+codon_table = {
     'TCA': 'S',  # Serina
     'TCC': 'S',  # Serina
     'TCG': 'S',  # Serina
@@ -171,8 +172,6 @@ class sgRNA:
             print(self._sgRNA_forward)
             print(self._sgRNA_reverse)
 
-            print('Gotta do the 60 bro')
-
     # get sgRNAs
     def get_sgRNA(self):
         return self._sgRNA_forward, self._sgRNA_reverse
@@ -190,6 +189,7 @@ class RepairTemplate:
         self.codon_position = (self.amino_acid_position * 3) - 3
         self.amino_acid_mutation = amino_acid_mutation
         self._switch = None
+        self.mutation = None
 
         # Data outputs
         self.repair_template_sequence = None
@@ -200,6 +200,8 @@ class RepairTemplate:
     # Make Repair template for 20mer
     def make_repair_template_for_20mer(self):
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
+
+        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
@@ -224,6 +226,8 @@ class RepairTemplate:
             return synonymous_codons[0]
 
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
+
+        self.mutation = codon_list[self.amino_acid_position - 1] + str(self.amino_acid_position) + self.amino_acid_mutation
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
@@ -251,9 +255,7 @@ class RepairTemplate:
 
     def design_template(self):
         if type(self._switch) is int:
-            print('ha')
             self.make_repair_template_for_60mer()
-            print(self.full_template_sequence)
 
         else:
             self.make_repair_template_for_20mer()
@@ -264,11 +266,14 @@ class RepairTemplate:
     def set_switch(self, x):
         self._switch = x
 
+    def get_mutation(self):
+        return self.mutation
+
 
 # Output data (all sequences) class
 class Output:
 
-    def __init__(self, output_path):
+    def __init__(self, output_directory):
         # Data outputs
         self.sgRNA_forward = None
         self.sgRNA_reverse = None
@@ -276,7 +281,7 @@ class Output:
         self.full_repair_template_sequence = None
         self.forward_primer_sequence = None
         self.reverse_primer_sequence = None
-        self.output = output_path
+        self.output = output_directory + '/test.txt'
 
     def set_sgRNA_sequences(self, forward, reverse):
         self.sgRNA_forward = forward
@@ -297,7 +302,8 @@ class Output:
                 f" \n> forward repair template primer {len(self.forward_primer_sequence)} bp\n{self.forward_primer_sequence}\n")
             file.write(
                 f' \n> reverse repair template primer {len(self.reverse_primer_sequence)} bp\n{self.reverse_primer_sequence}\n')
-            file.write(f' \n> full repair template {len(self.full_repair_template)} bp\n{self.full_repair_template}\n')
+            file.write(
+                f' \n> full repair template {len(self.full_repair_template_sequence)} bp\n{self.full_repair_template_sequence}\n')
 
     def check_ouput_file(self):
         print(f' \n> sgRNA forward primer {len(self.sgRNA_forward)} bp\n{self.sgRNA_forward} \n')
@@ -324,7 +330,7 @@ class MutantDesigner:
         self.template.design_template()
         self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
         self.output_file.set_template_sequences(*self.template.get_template())
-        self.output_file.check_ouput_file()
+        self.output_file.create_output_file()
 
 
 # Command Line Interface with Argparse
@@ -337,21 +343,21 @@ def cmd_lineparser():
     # Get path to fasta file containing protein sequence
     group_inputs.add_argument('-s', '--sequence', metavar='\b', type=str, action='store',
                               help='path to fasta file',
-                              default=None)
+                              default=None, required=True)
     # Get position of amino acid target
     group_inputs.add_argument('-p', '--position', metavar='\b', type=int, action='store',
                               help='position of target amino acid',
-                              default=None)
+                              default=None, required=True)
 
     # Get amino acid to be replacement
     group_inputs.add_argument('-m', '--mutant', metavar='\b', type=str, action='store',
                               help='mutation of target amino acid',
-                              default=None)
+                              default=None, required=True)
 
     group_output = parser.add_argument_group('Outputs')
     # Get output directory
     group_output.add_argument('-o', '--output', metavar='\b', type=str, action='store',
-                              help='directory to store output file', default=None)
+                              help='directory to store output file')
 
     group_options = parser.add_argument_group('Options')
     # Get Version
@@ -367,6 +373,17 @@ def cmd_lineparser():
     if input_list.count(input_list[0]) == len(input_list):
         parser.parse_args(['-h'])
 
+    if not (arguments.sequence.endswith('.fsa') or arguments.sequence.endswith('.fasta')):
+        parser.error('--sequence requires .fsa or .fasta file as input')
+
+    amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
+
+    if type(arguments.position) is not int:
+        parser.error('--position requires valid integer ')
+
+    if arguments.mutant not in amino_acids:
+        parser.error('--mutant requires valid single amino acid code or "*" ')
+
     return arguments
 
 
@@ -378,18 +395,8 @@ def open_fasta(path):
 
 
 if __name__ == '__main__':
-    # S288C_YMR202W_ERG2_coding.fsa
-
-    sequence = 'ATGAAGTTTTTCCCACTCCTTTTGTTGATTGGTGTTGTAGGCTACATTATGAACGTATTGTTCACTACCTGGTTGCCAACCAATTACATGTTCGATCCAAAAACTTTGAACGAAATATGTAACTCGGTGATTAGCAAACACAACGCAGCAGAAGGTTTATCCACTGAAGACCTGTTACAGGATGTCAGAGACGCACTTGCCTCTCATTACGGGGACGAATACATCAACAGGTACGTCAAAGAAGAATGGGTCTTCAACAATGCTGGTGGTGCGATGGGCCAAATGATCATCCTACACGCTTCCGTATCCGAGTACTTAATTCTATTCGGAACCGCTGTTGGTACTGAAGGGCACACAGGTGTTCACTTTGCTGACGACTATTTTACCATCTTACATGGTACGCAAATCGCAGCATTGCCATATGCCACTGAAGCCGAAGTTTACACTCCTGGTATGACTCATCACTTGAAGAAGGGATACGCCAAGCAATACAGCATGCCAGGTGGTTCCTTTGCCCTTGAATTGGCTCAAGGCTGGATTCCATGTATGTTGCCATTCGGGTTTTTGGACACTTTCTCCAGTACTCTTGATTTATACACTCTATATAGAACTGTCTACCTGACTGCCAGGGACATGGGTAAGAACTTGTTGCAAAACAAAAAGTTCTAA'
-
-    # Test system
-    design = MutantDesigner(sequence, 135, 'Q', 'test.txt')  # system test
-    design.design()
-
-'''
     # Test interface
     args = cmd_lineparser()  # command line
     sequence = open_fasta(args.sequence)  # process fasta file
-    design = MutantDesigner(sequence, args.position, args.mutant, args.output)  # system test 
-    design.design()
-'''
+    mutant = MutantDesigner(sequence, args.position, args.mutant, args.output)  # system test
+    mutant.design()
