@@ -362,7 +362,7 @@ def cmd_lineparser():
     group_output = parser.add_argument_group('Outputs')
     # Get output directory
     group_output.add_argument('-o', '--output', metavar='\b', type=str, action='store',
-                              help='directory to store output file')
+                              help='directory to store output file', default=None)
 
     group_options = parser.add_argument_group('Options')
     # Get Version
@@ -389,8 +389,9 @@ def cmd_lineparser():
     if arguments.mutant not in amino_acids:
         parser.error('--mutant requires valid single amino acid code or "*" ')
 
-    if os.path.isdir(arguments.output) is False:
-        parser.error('--output requires valid directory')
+    if arguments.output is not None:
+        if os.path.isdir(arguments.output) is False:
+            parser.error('--output requires valid directory')
 
     return arguments
 
