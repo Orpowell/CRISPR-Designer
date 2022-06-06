@@ -135,6 +135,7 @@ class sgRNA:
                 return [the_60mer, site]
 
         try:
+
             pam_sites = find_pam_sites(22)
 
             test = [find_20mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
@@ -148,26 +149,36 @@ class sgRNA:
 
             indentified_sgRNA = front + oligo.lower() + back
 
+            print('\n>PAM site found within 20 nucleotides...\n\n>Forward and Reverse sgRNA sequences generated...\n')
             self._sgRNA_forward = indentified_sgRNA
             self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
 
         except IndexError:
-            pam_sites = find_pam_sites(62)
+            try:
+                print('\n>No PAM site within 20 nucletoides of target codon searching within 60 nucleotides... \n')
 
-            test = [find_60mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
+                pam_sites = find_pam_sites(62)
 
-            result = [oligo for oligo in test if oligo[0] is not None]  # Remove None values
+                test = [find_60mers(x, self.sequence) for x in pam_sites]  # Identify 20mers upstream of PAM sites
 
-            oligo = result[-1][0][-20:]
+                result = [oligo for oligo in test if oligo[0] is not None]  # Remove None values
 
-            front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
-            back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
+                oligo = result[-1][0][-20:]
 
-            indentified_sgRNA = front + oligo.lower() + back
+                front = 'CGGGTGGCGAATGGGACTTT'  # Front primer
+                back = 'GTTTTAGAGCTAGAAATAGC'  # back primer
 
-            self._sgRNA_forward = indentified_sgRNA
-            self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
-            self._60mer_switch = result[-1][1] // 3
+                indentified_sgRNA = front + oligo.lower() + back
+
+                print('>PAM site found within 60 nucleotides\n')
+                self._sgRNA_forward = indentified_sgRNA
+                self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
+                self._60mer_switch = result[-1][1] // 3
+
+            except TypeError:
+                print('error: No pam site found within 60 nucletoides of the target codon\n\n>Shutting down...\n')
+
+                sys.exit(1)
 
     # get sgRNAs
     def get_sgRNA(self):
@@ -198,7 +209,8 @@ class RepairTemplate:
     def make_repair_template_for_20mer(self):
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
-        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(self.amino_acid_position) + self.amino_acid_mutation + '.txt'
+        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(
+            self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
@@ -211,6 +223,7 @@ class RepairTemplate:
             mutant_gene[(self.codon_position + 10):(self.codon_position + 80)]).reverse_complement()
         full_template = mutant_gene[(self.codon_position - 80):(self.codon_position + 80)]
 
+        print('>Repair template and primers generated\n')
         self.repair_template_sequence = repair_template_sequence
         self.forward_primer_sequence = forward_primer_sequence
         self.reverse_primer_sequence = reverse_primer_sequence
@@ -224,7 +237,8 @@ class RepairTemplate:
 
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
-        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(self.amino_acid_position) + self.amino_acid_mutation + '.txt'
+        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(
+            self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
@@ -293,6 +307,9 @@ class Output:
         self.output_test = x
 
     def create_output_file(self):
+
+        print('>Writing output file...\n')
+
         if self.output is None:
             file_path = self.output_test
         else:
@@ -309,17 +326,7 @@ class Output:
             file.write(
                 f' \n> full repair template {len(self.full_repair_template_sequence)} bp\n{self.full_repair_template_sequence}\n')
 
-    def check_ouput_file(self):
-        print(f' \n> sgRNA forward primer {len(self.sgRNA_forward)} bp\n{self.sgRNA_forward} \n')
-        print(f' \n> sgRNA reverse primer {len(self.sgRNA_reverse)} bp\n{self.sgRNA_reverse}\n')
-        print(f' \n> repair template {len(self.repair_template_sequence)}\n{self.repair_template_sequence}\n')
-        print(
-            f" \n> forward repair template primer {len(self.forward_primer_sequence)} bp\n{self.forward_primer_sequence}\n")
-        print(
-            f' \n> reverse repair template primer {len(self.reverse_primer_sequence)} bp\n{self.reverse_primer_sequence}\n')
-        print(
-            f' \n> full repair template {len(self.full_repair_template_sequence)} bp\n{self.full_repair_template_sequence}\n')
-
+        print(f'>Output file written to: {file_path}\n\n>Shutting down...\n')
 
 # Wrapper class for mutant design
 class MutantDesigner:
@@ -336,7 +343,6 @@ class MutantDesigner:
         self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
         self.output_file.set_template_sequences(*self.template.get_template())
         self.output_file.create_output_file()
-
 
 # Command Line Interface with Argparse
 def cmd_lineparser():
