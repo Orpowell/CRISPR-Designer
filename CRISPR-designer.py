@@ -169,9 +169,6 @@ class sgRNA:
             self._sgRNA_reverse = str(Seq(indentified_sgRNA).reverse_complement())
             self._60mer_switch = result[-1][1] // 3
 
-            print(self._sgRNA_forward)
-            print(self._sgRNA_reverse)
-
     # get sgRNAs
     def get_sgRNA(self):
         return self._sgRNA_forward, self._sgRNA_reverse
@@ -227,15 +224,13 @@ class RepairTemplate:
 
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
-        self.mutation = codon_list[self.amino_acid_position - 1] + str(self.amino_acid_position) + self.amino_acid_mutation
+        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
 
         synonymous_mutation_site = self._switch - 5
         aa = Seq(codon_list[synonymous_mutation_site]).translate()
-        # codon_list[synonymous_mutation_site] = (list(codon_table.keys())[list(codon_table.values()).index(aa)]).lower()
-
         codon_list[synonymous_mutation_site] = synonymous_mutator(aa, codon_list[synonymous_mutation_site]).lower()
 
         mutant_gene = "".join(codon_list)
@@ -281,7 +276,8 @@ class Output:
         self.full_repair_template_sequence = None
         self.forward_primer_sequence = None
         self.reverse_primer_sequence = None
-        self.output = output_directory + '/test.txt'
+        self.output_test = None
+        self.output = output_directory
 
     def set_sgRNA_sequences(self, forward, reverse):
         self.sgRNA_forward = forward
@@ -293,8 +289,16 @@ class Output:
         self.repair_template_sequence = core_sequence
         self.full_repair_template_sequence = full_template
 
+    def set_output_test(self, x):
+        self.output_test = x
+
     def create_output_file(self):
-        with open(self.output, 'w+') as file:
+        if self.output is None:
+            file_path = self.output_test
+        else:
+            file_path = self.output + '/' + self.output_test
+
+        with open(file_path, 'w+') as file:
             file.write(f' \n> sgRNA forward primer {len(self.sgRNA_forward)} bp\n{self.sgRNA_forward} \n')
             file.write(f' \n> sgRNA reverse primer {len(self.sgRNA_reverse)} bp\n{self.sgRNA_reverse}\n')
             file.write(f' \n> repair template {len(self.repair_template_sequence)}\n{self.repair_template_sequence}\n')
@@ -328,6 +332,7 @@ class MutantDesigner:
         self.sgRNAs.make_sgRNAs()
         self.template.set_switch(self.sgRNAs.get_switch())
         self.template.design_template()
+        self.output_file.set_output_test(str(self.template.get_mutation()))
         self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
         self.output_file.set_template_sequences(*self.template.get_template())
         self.output_file.create_output_file()
