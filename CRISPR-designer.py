@@ -389,6 +389,9 @@ def cmd_lineparser():
     if arguments.mutant not in amino_acids:
         parser.error('--mutant requires valid single amino acid code or "*" ')
 
+    if os.path.isdir(arguments.output) is False:
+        parser.error('--output requires valid directory')
+
     return arguments
 
 
