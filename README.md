@@ -34,7 +34,7 @@ CRISPR Designer requires the following inputs while running:
 			--mutation A \
 			--output output/directory
 
-| Argument | Input |
+| Argument     | Input |
 | :------------- | :-----|
 | --sequence | Path to the FASTA file containing the nucleotide sequence of the target protein |
 | —-position | Position of the amino acid to be mutated (e.g 174).
