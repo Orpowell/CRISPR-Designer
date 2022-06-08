@@ -36,9 +36,9 @@ CRISPR Designer requires the following inputs while running:
 
 | Argument           | Input |
 | :------------------------- | :-----|
-| --sequence | Path to the FASTA file containing the nucleotide sequence of the target protein |
+| --sequence   | Path to the FASTA file containing the nucleotide sequence of the target protein |
 | --position | Position of the amino acid to be mutated (e.g 174).
-| --mutation | amino acid to subsititute at the target position as single letter code. (e.g A)
+| --mutation | Amino acid to subsititute at the target position as single letter code. (e.g A)
 | --output | (Optional) A directory to store the output file in. If no directory is provided the file will be saved to the current working directory |
 
 In addition the following options are also available:
@@ -62,7 +62,7 @@ Data is formatted similiar to a fasta file with each header displaying the seque
 	> repair template n bp
 	sequence
 
-	> forward repair template primer	 n bp
+	> forward repair template primer n bp
 	sequence
 
 	> reverse repair template primer n bp
