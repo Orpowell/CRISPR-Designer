@@ -79,6 +79,7 @@ If no appropriate PAM site can be found within 60 nucleotides region upstream of
 ## Future Updates
 Future updates may include:
 - Support for Windows 
+- Sequencing primer design
 - Expansion of tool to include other methods outlined by Ryan et. al 2016 such as DNA bar coding (Please request if you’re interested!).
 
 ## Feedback
