@@ -69,7 +69,11 @@ Data is formatted similiar to a fasta file with each header displaying the seque
 	sequence
 
 	> full repair template n bp
+	sequence 
+
+	> sequencing primer n bp
 	sequence
+
 
 ## Notes on function
 CRISPR designer  automatically design ssgRNA sequences, repair templates and primers based on the inputs provided by the user.  Codons are automatically mutated to implement the desired mutation and in the case of the 60mer protocol an additional synonymous mutation is also automatically introduced into the repair template.
@@ -79,7 +83,6 @@ If no appropriate PAM site can be found within 60 nucleotides region upstream of
 ## Future Updates
 Future updates may include:
 - Support for Windows 
-- Sequencing primer design
 - Expansion of tool to include other methods outlined by Ryan et. al 2016 such as DNA bar coding (Please request if you’re interested!).
 
 ## Feedback
