@@ -307,17 +307,18 @@ class RepairTemplate:
 
 # Sequencing Primer designer class
 class SequencingPrimer:
-    def __init__(self, sequence, amino_acid_position):
+    def __init__(self, nucleotide_sequence, amino_acid_position):
         self.codon_position = (amino_acid_position * 3) - 3
-        self.sequence = sequence
+        self.sequence = nucleotide_sequence
         self.primer = None
 
     # Design primer 50nt upstream of target codon
-    def make_primer(self):
+    def make_primer(self) -> str:
         primer = self.sequence[self.codon_position - 70:self.codon_position - 50]
         print(len(primer))
         self.primer = primer
 
+    # get primer sequence
     def get_primer(self):
         return self.primer
 
@@ -432,7 +433,7 @@ def cmd_lineparser():
 
     group_options = parser.add_argument_group('Options')
     # Get Version
-    group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.0.0')
+    group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.1.0')
     # Get help
     group_options.add_argument("-h", "--help", action="help", help="show this help message and exit\n ")
 
