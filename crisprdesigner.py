@@ -373,7 +373,7 @@ class MutantDesigner:
             file.write(f'> sgRNA reverse primer {len(sgRNA_sequences[1])} bp\n')
             file.write(f'{sgRNA_sequences[1]}\n\n')
 
-            file.write(f'{("#" * 24)}\n Primers for Template \n{("#" * 24)}\n\n')
+            file.write(f'{("#" * 31)}\n Primers for Repair Template \n{("#" * 31)}\n\n')
 
             file.write(f'> repair template {len(template_sequences[2])} bp\n')
             file.write(f'{template_sequences[2]}\n\n')
