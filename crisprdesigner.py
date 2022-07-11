@@ -310,98 +310,98 @@ class SequencingPrimer:
     def __init__(self, nucleotide_sequence, amino_acid_position):
         self.codon_position = (amino_acid_position * 3) - 3
         self.sequence = nucleotide_sequence
-        self.primer = None
+        self.amplified_region = None
+        self.forward_region_primer = None
+        self.reverse_region_primer = None
+        self.sequencing_primer = None
+
+    # Regions primers
+    def make_region_primers(self):
+        target_region = self.sequence[(self.codon_position - 150):(self.codon_position + 150)]
+        self.forward_region_primer = target_region[:20]
+        self.reverse_region_primer = Seq(target_region[-20:]).reverse_complement()
+        self.amplified_region = target_region
 
     # Design primer 50nt upstream of target codon
-    def make_primer(self) -> None:
+    def make_seq_primer(self) -> None:
         primer = self.sequence[self.codon_position - 70:self.codon_position - 50]
-        print(len(primer))
-        self.primer = primer
-
-    # get primer sequence
-    def get_primer(self):
-        return self.primer
-
-
-# Output data (all sequences) class
-class Output:
-
-    def __init__(self, output_directory):
-        # Data outputs
-        self.sgRNA_forward = None
-        self.sgRNA_reverse = None
-        self.repair_template_sequence = None
-        self.full_repair_template_sequence = None
-        self.forward_primer_sequence = None
-        self.reverse_primer_sequence = None
-        self.sequencing_primer = None
-        self.output_name = None
-        self.output = output_directory
-
-    # set sgRNA sequences from sgRNA class
-    def set_sgRNA_sequences(self, forward, reverse):
-        self.sgRNA_forward = forward
-        self.sgRNA_reverse = reverse
-
-    # set repair template sequences from RepairTemplate class
-    def set_template_sequences(self, forward_primer, reverse_primer, core_sequence, full_template):
-        self.reverse_primer_sequence = reverse_primer
-        self.forward_primer_sequence = forward_primer
-        self.repair_template_sequence = core_sequence
-        self.full_repair_template_sequence = full_template
-
-    def set_sequencing_primer(self, primer):
         self.sequencing_primer = primer
 
-    # Set output file name
-    def set_output_name(self, x):
-        self.output_name = x
-
-    # Generate output file with all data
-    def create_output_file(self):
-
-        print('>Writing output file...\n')
-
-        # Saves output file in current working directory unless an alternate directory is given
-        if self.output is None:
-            file_path = self.output_name
-        else:
-            file_path = self.output + '/' + self.output_name
-
-        with open(file_path, 'w+') as file:
-            file.write(f' \n> sgRNA forward primer {len(self.sgRNA_forward)} bp\n{self.sgRNA_forward} \n')
-            file.write(f' \n> sgRNA reverse primer {len(self.sgRNA_reverse)} bp\n{self.sgRNA_reverse}\n')
-            file.write(f' \n> repair template {len(self.repair_template_sequence)}\n{self.repair_template_sequence}\n')
-            file.write(
-                f" \n> forward repair template primer {len(self.forward_primer_sequence)} bp\n{self.forward_primer_sequence}\n")
-            file.write(
-                f' \n> reverse repair template primer {len(self.reverse_primer_sequence)} bp\n{self.reverse_primer_sequence}\n')
-            file.write(
-                f' \n> full repair template {len(self.full_repair_template_sequence)} bp\n{self.full_repair_template_sequence}\n')
-            file.write(f' \n> sequencing primer {len(self.sequencing_primer)} bp\n{self.sequencing_primer} \n')
-
-        print(f'>Output file written to: {file_path}\n\n>Shutting down...\n')
+    # get primer sequence
+    def get_primers(self):
+        return self.amplified_region, self.forward_region_primer, self.reverse_region_primer, self.sequencing_primer
 
 
 # Wrapper class for mutant design
 class MutantDesigner:
     def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, output):
         self.sgRNAs = sgRNA(nucleotide_sequence, amino_acid_position)
-        self.seq_primer = SequencingPrimer(nucleotide_sequence, amino_acid_position)
+        self.sequencing_primer = SequencingPrimer(nucleotide_sequence, amino_acid_position)
         self.template = RepairTemplate(nucleotide_sequence, amino_acid_position, amino_acid_mutation)
-        self.output_file = Output(output)
+        self.output_directory = output
 
-    # Designs and generates output file with all sequences
+    # Designs all sequences
     def design(self):
         self.sgRNAs.make_sgRNAs()
-        self.seq_primer.make_primer()
         self.template.set_switch(self.sgRNAs.get_switch())
         self.template.design_template()
-        self.output_file.set_output_name(str(self.template.get_mutation()))
-        self.output_file.set_sgRNA_sequences(*self.sgRNAs.get_sgRNA())
-        self.output_file.set_template_sequences(*self.template.get_template())
-        self.output_file.set_sequencing_primer(self.seq_primer.get_primer())
-        self.output_file.create_output_file()
+        self.sequencing_primer.make_seq_primer()
+        self.sequencing_primer.make_region_primers()
+
+    # Create output file with all sequences
+    def create_output_file(self):
+
+        sgRNA_sequences = [*self.sgRNAs.get_sgRNA()]
+        template_sequences = [*self.template.get_template()]
+        sequencing_sequences = [*self.sequencing_primer.get_primers()]
+
+        print('>Writing output file...\n')
+
+        # Saves output file in current working directory unless an alternate directory is given
+        if self.output_directory is None:
+            file_path = str(self.template.get_mutation())
+        else:
+            file_path = self.output_directory + '/' + str(self.template.get_mutation())
+
+        with open(file_path, 'w+') as file:
+
+            file.write(f'{("#" * 25)}\n Primers for Guide RNA \n{("#" * 25)}\n\n')
+
+            file.write(f'> sgRNA forward primer {len(sgRNA_sequences[0])} bp\n')
+            file.write(f'{sgRNA_sequences[0]}\n\n')
+
+            file.write(f'> sgRNA reverse primer {len(sgRNA_sequences[1])} bp\n')
+            file.write(f'{sgRNA_sequences[1]}\n\n')
+
+            file.write(f'{("#" * 24)}\n Primers for Template \n{("#" * 24)}\n\n')
+
+            file.write(f'> repair template {len(template_sequences[2])} bp\n')
+            file.write(f'{template_sequences[2]}\n\n')
+
+            file.write(f'> forward repair template primer {len(template_sequences[0])} bp\n')
+            file.write(f'{template_sequences[0]}\n\n')
+
+            file.write(f'> reverse repair template primer {len(template_sequences[1])} bp\n')
+            file.write(f'{template_sequences[1]}\n\n')
+
+            file.write(f'> full repair template {len(template_sequences[3])} bp\n')
+            file.write(f'{template_sequences[3]}\n\n')
+
+            file.write(f'{("#" * 25)}\n Primers for Sequencing \n{("#" * 25)}\n\n')
+
+            file.write(f'> amplified region (reference for sequencing) {len(sequencing_sequences[0])} bp\n')
+            file.write(f'{sequencing_sequences[0]} \n\n')
+
+            file.write(f'> forward primer for amplified region {len(sequencing_sequences[1])} bp\n')
+            file.write(f'{sequencing_sequences[1]} \n\n')
+
+            file.write(f'> reverse primer for amplified region {len(sequencing_sequences[2])} bp\n')
+            file.write(f'{sequencing_sequences[2]} \n\n')
+
+            file.write(f'> primer for sequencing the amplified region {len(sequencing_sequences[3])} bp\n')
+            file.write(f'{sequencing_sequences[3]} \n\n')
+
+        print(f'>Output file written to: {file_path}\n\n>Shutting down...\n')
 
 
 # Command Line Interface with Argparse
@@ -479,6 +479,7 @@ def main():
     sequence = open_fasta(args.sequence)  # process fasta file
     mutant = MutantDesigner(sequence, args.position, args.mutant, args.output)
     mutant.design()
+    mutant.create_output_file()
 
 
 if __name__ == '__main__':
