@@ -3,11 +3,12 @@
 import re
 import sys
 import os
+import argparse
 from Bio import SeqIO
 from Bio.Seq import Seq
-import argparse
 
-# Codon Tab;e
+
+# Codon Table
 codon_table = {
     'TCA': 'S',  # Serina
     'TCC': 'S',  # Serina
@@ -248,7 +249,7 @@ class RepairTemplate:
     def make_repair_template_for_60mer(self):
 
         # Find a synonymous codon for synonymous mutation
-        def synonymous_mutator(target, present_codon) -> string:
+        def synonymous_mutator(target, present_codon) -> str:
             synonymous_codons = [k for k, v in codon_table.items() if v == target and k != present_codon]
             return synonymous_codons[0]
 
@@ -315,19 +316,19 @@ class SequencingPrimer:
         self.reverse_region_primer = None
         self.sequencing_primer = None
 
-    # Regions primers
+    # Identify 400bp region for amplification and design primers
     def make_region_primers(self):
-        target_region = self.sequence[(self.codon_position - 150):(self.codon_position + 150)]
+        target_region = self.sequence[(self.codon_position - 200):(self.codon_position + 200)]
         self.forward_region_primer = target_region[:20]
         self.reverse_region_primer = Seq(target_region[-20:]).reverse_complement()
         self.amplified_region = target_region
 
-    # Design primer 50nt upstream of target codon
-    def make_seq_primer(self) -> None:
-        primer = self.sequence[self.codon_position - 70:self.codon_position - 50]
+    # Design primer 10nt upstream of target codon in the amplified region for sequencing
+    def make_seq_primer(self):
+        primer = self.sequence[self.codon_position - 120:self.codon_position - 100]
         self.sequencing_primer = primer
 
-    # get primer sequence
+    # get all primer sequences and amplified region sequence
     def get_primers(self):
         return self.amplified_region, self.forward_region_primer, self.reverse_region_primer, self.sequencing_primer
 
@@ -351,9 +352,9 @@ class MutantDesigner:
     # Create output file with all sequences
     def create_output_file(self):
 
-        sgRNA_sequences = [*self.sgRNAs.get_sgRNA()]
-        template_sequences = [*self.template.get_template()]
-        sequencing_sequences = [*self.sequencing_primer.get_primers()]
+        sgRNA_sequences = [*self.sgRNAs.get_sgRNA()]  # list of sgRNA sequences
+        template_sequences = [*self.template.get_template()]  # list of template sequences and primers
+        sequencing_sequences = [*self.sequencing_primer.get_primers()]  # list of primers for sequencings
 
         print('>Writing output file...\n')
 
@@ -468,7 +469,7 @@ def cmd_lineparser():
 
 
 # Open fasta file from path provided
-def open_fasta(path):
+def open_fasta(path) -> str:
     # Parse fasta file into Biopython Seq object
     for dna_sequence in SeqIO.parse(path, "fasta"):
         return str(dna_sequence.seq)
@@ -477,9 +478,9 @@ def open_fasta(path):
 def main():
     args = cmd_lineparser()  # command line interface
     sequence = open_fasta(args.sequence)  # process fasta file
-    mutant = MutantDesigner(sequence, args.position, args.mutant, args.output)
-    mutant.design()
-    mutant.create_output_file()
+    mutant = MutantDesigner(sequence, args.position, args.mutant, args.output)  # intialise mutant designer
+    mutant.design()  # design all sequences based on inputs
+    mutant.create_output_file()  # write and save output file
 
 
 if __name__ == '__main__':
