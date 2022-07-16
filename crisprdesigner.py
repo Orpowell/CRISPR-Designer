@@ -7,7 +7,6 @@ import argparse
 from Bio import SeqIO
 from Bio.Seq import Seq
 
-
 # Codon Table
 codon_table = {
     'TCA': 'S',  # Serina
@@ -404,11 +403,13 @@ class MutantDesigner:
 
         print(f'>Output file written to: {file_path}\n\n>Shutting down...\n')
 
+
 # Open fasta file from path provided
 def open_fasta(path) -> str:
     # Parse fasta file into Biopython Seq object
     for dna_sequence in SeqIO.parse(path, "fasta"):
         return str(dna_sequence.seq)
+
 
 # Command Line Interface with Argparse
 def cmd_lineparser():
@@ -437,27 +438,33 @@ def cmd_lineparser():
     group_output.add_argument('-o', '--output', metavar='\b', type=str, action='store',
                               help='directory to store output file', default=None)
 
-    group_output.add_argument('-t', '--test', metavar='\b', type=int, action='store',
-                              help='test', default=None)
-
     group_options = parser.add_argument_group('Options')
     # Get Version
     group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.1.0')
     # Get help
     group_options.add_argument("-h", "--help", action="help", help="show this help message and exit\n ")
 
-    # Parse arguments
-    arguments = parser.parse_args()
-    arguments.sequence = open_fasta(arguments.sequence)
+    arguments = parser.parse_args()  # Parse arguments
+
+    # Check file provided is a fasta file
+    if not (arguments.sequence.endswith('.fsa') or arguments.sequence.endswith('.fasta')):
+        parser.error('--sequence requires .fsa or .fasta file as input')
+
+    arguments.string_sequence = open_fasta(arguments.sequence)  # Read fasta file input
+
     input_list = [arguments.sequence, arguments.position, arguments.mutant, arguments.output]
 
     # If all arguments are None display help text
     if input_list.count(input_list[0]) == len(input_list):
         parser.parse_args(['-h'])
 
-    # Check file provided is a fasta file
-    if not (arguments.sequence.endswith('.fsa') or arguments.sequence.endswith('.fasta')):
-        parser.error('--sequence requires .fsa or .fasta file as input')
+    # Check amino acid given is within protein length
+    if arguments.position > len(arguments.string_sequence) // 3:
+        parser.error('--position must be within protein length')
+
+    # Check sequence from fasta file only contains genomic sequences
+    if not re.compile(r'(?!.*[A-Z]).*[ATGC]').search(arguments.string_sequence):
+        parser.error('--sequence must only contain genomic bases A,T,G or C')
 
     amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
 
@@ -474,17 +481,12 @@ def cmd_lineparser():
         if os.path.isdir(arguments.output) is False:
             parser.error('--output requires valid directory')
 
-
-
     return arguments
-
-
-
 
 
 def main():
     args = cmd_lineparser()  # command line interface
-    mutant = MutantDesigner(args.sequence, args.position, args.mutant, args.output)  # intialise mutant designer
+    mutant = MutantDesigner(args.string_sequence, args.position, args.mutant, args.output)  # intialise mutant designer
     mutant.design()  # design all sequences based on inputs
     mutant.create_output_file()  # write and save output file
 
