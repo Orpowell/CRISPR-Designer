@@ -404,6 +404,11 @@ class MutantDesigner:
 
         print(f'>Output file written to: {file_path}\n\n>Shutting down...\n')
 
+# Open fasta file from path provided
+def open_fasta(path) -> str:
+    # Parse fasta file into Biopython Seq object
+    for dna_sequence in SeqIO.parse(path, "fasta"):
+        return str(dna_sequence.seq)
 
 # Command Line Interface with Argparse
 def cmd_lineparser():
@@ -432,6 +437,9 @@ def cmd_lineparser():
     group_output.add_argument('-o', '--output', metavar='\b', type=str, action='store',
                               help='directory to store output file', default=None)
 
+    group_output.add_argument('-t', '--test', metavar='\b', type=int, action='store',
+                              help='test', default=None)
+
     group_options = parser.add_argument_group('Options')
     # Get Version
     group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.1.0')
@@ -440,6 +448,7 @@ def cmd_lineparser():
 
     # Parse arguments
     arguments = parser.parse_args()
+    arguments.sequence = open_fasta(arguments.sequence)
     input_list = [arguments.sequence, arguments.position, arguments.mutant, arguments.output]
 
     # If all arguments are None display help text
@@ -465,20 +474,17 @@ def cmd_lineparser():
         if os.path.isdir(arguments.output) is False:
             parser.error('--output requires valid directory')
 
+
+
     return arguments
 
 
-# Open fasta file from path provided
-def open_fasta(path) -> str:
-    # Parse fasta file into Biopython Seq object
-    for dna_sequence in SeqIO.parse(path, "fasta"):
-        return str(dna_sequence.seq)
+
 
 
 def main():
     args = cmd_lineparser()  # command line interface
-    sequence = open_fasta(args.sequence)  # process fasta file
-    mutant = MutantDesigner(sequence, args.position, args.mutant, args.output)  # intialise mutant designer
+    mutant = MutantDesigner(args.sequence, args.position, args.mutant, args.output)  # intialise mutant designer
     mutant.design()  # design all sequences based on inputs
     mutant.create_output_file()  # write and save output file
 
