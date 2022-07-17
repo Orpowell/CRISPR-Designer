@@ -268,17 +268,21 @@ class RepairTemplate:
         synonymous_mutation_site = self._switch - 5
         aa = Seq(codon_list[synonymous_mutation_site]).translate()
 
+        # Shift synonymous mutation site forward by +1 if site is ATG
         j = 0
         while aa == 'M':
-            synonymous_mutation_site += 1
-            j += 1
-            aa = Seq(codon_list[synonymous_mutation_site]).translate()
+            synonymous_mutation_site += 1  # synonymous mutation site
+            j += 1  # shift counter
+            aa = Seq(codon_list[synonymous_mutation_site]).translate()  # get amino acid at new mutation site
+
+            # If synonymous mutation site has been shifted 4 times - exit system (4 is right next to PAM site)
             if j == 4:
                 print('error: Too many methionine repeats, CRISPR Designer cannot implement synonymous mutation')
                 sys.exit(1)
 
+        # Implement synonymous mutation within 20nt of PAM site
         codon_list[synonymous_mutation_site] = synonymous_mutator(aa, codon_list[synonymous_mutation_site]).lower()
-        mutant_gene = "".join(codon_list)
+        mutant_gene = "".join(codon_list)  # convert codon list back to string
 
         # generate 60 nt core template, two 70 nt primers and 160 nt full repair template
         core_start = self.codon_position - 12
@@ -494,7 +498,7 @@ def cmd_lineparser():
 
     arguments.codon_position = int((arguments.position * 3) - 3 + 300)
 
-    if arguments.string_sequence[arguments.codon_position: arguments.codon_position+3] == 'ATG':
+    if arguments.string_sequence[arguments.codon_position: arguments.codon_position + 3] == 'ATG':
         parser.error('Methionine is only encoded by a single amino acid and cannot be mutated')
 
     return arguments
