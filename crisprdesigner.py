@@ -78,9 +78,9 @@ codon_table = {
 
 # sgRNA designer class
 class sgRNA:
-    def __init__(self, nucleotide_sequence, amino_acid_position):
+    def __init__(self, nucleotide_sequence, codon_position):
         self.sequence = nucleotide_sequence
-        self.codon_position = (amino_acid_position * 3) - 3
+        self.codon_position = codon_position
 
         # Data outputs
         self._sgRNA_forward = None
@@ -101,9 +101,9 @@ class sgRNA:
                 return True
 
         # Identify all PAM sites within range of target codon and return list of positions
-        def find_pam_sites(xmer) -> list:
+        def find_pam_sites(xmer, codon_position, sequence) -> list:
             # define search region for PAM sites within "xmer" nucleotides upstream of target codon
-            search_region = self.sequence[self.codon_position: self.codon_position + xmer]
+            search_region = sequence[codon_position: (codon_position + xmer)]
             i = 0
             pam_positions = []
             for _ in search_region:
@@ -113,7 +113,7 @@ class sgRNA:
                 # If a PAM site is found store the position of the second base pair in PAM
                 if codon == 'GG':
                     pam_position = i + 1  # Store position of last base of PAM site
-                    pam_positions.append(pam_position + self.codon_position)  # Store value in a list
+                    pam_positions.append(pam_position + codon_position)  # Store value in a list
 
             return pam_positions
 
@@ -143,7 +143,7 @@ class sgRNA:
 
         # Attempt to generate sgRNA using 20mer approach
         try:
-            pam_sites = find_pam_sites(22)
+            pam_sites = find_pam_sites(22, self.codon_position, self.sequence)
 
             valid_20mers = [find_20mers(x, self.sequence) for x in pam_sites]  # Find all valid 20mer sequences
 
@@ -165,7 +165,7 @@ class sgRNA:
             try:
                 print('\n>No PAM site within 20 nucletoides of target codon searching within 60 nucleotides... \n')
 
-                pam_sites = find_pam_sites(62)
+                pam_sites = find_pam_sites(62, self.codon_position, self.sequence)
 
                 valid_20mers = [find_60mers(x, self.sequence) for x in pam_sites]  # Find all valid 60mer sequences
 
@@ -200,11 +200,12 @@ class sgRNA:
 
 # Repair Template Designer class
 class RepairTemplate:
-    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation):
+
+    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, codon_mutation):
         # Initialise inputs
         self.sequence = nucleotide_sequence
         self.amino_acid_position = amino_acid_position
-        self.codon_position = (self.amino_acid_position * 3) - 3
+        self.codon_position = codon_mutation
         self.amino_acid_mutation = amino_acid_mutation
         self._switch = None
         self.mutation = None
@@ -307,8 +308,8 @@ class RepairTemplate:
 
 # Sequencing Primer designer class
 class SequencingPrimer:
-    def __init__(self, nucleotide_sequence, amino_acid_position):
-        self.codon_position = (amino_acid_position * 3) - 3
+    def __init__(self, nucleotide_sequence, codon_position):
+        self.codon_position = codon_position
         self.sequence = nucleotide_sequence
         self.amplified_region = None
         self.forward_region_primer = None
@@ -334,10 +335,10 @@ class SequencingPrimer:
 
 # Wrapper class for mutant design
 class MutantDesigner:
-    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, output):
-        self.sgRNAs = sgRNA(nucleotide_sequence, amino_acid_position)
-        self.sequencing_primer = SequencingPrimer(nucleotide_sequence, amino_acid_position)
-        self.template = RepairTemplate(nucleotide_sequence, amino_acid_position, amino_acid_mutation)
+    def __init__(self, nucleotide_sequence, amino_acid_position, amino_acid_mutation, output, codon_position):
+        self.sgRNAs = sgRNA(nucleotide_sequence, codon_position)
+        self.sequencing_primer = SequencingPrimer(nucleotide_sequence, codon_position)
+        self.template = RepairTemplate(nucleotide_sequence, amino_acid_position, amino_acid_mutation, codon_position)
         self.output_directory = output
 
     # Designs all sequences
@@ -463,7 +464,7 @@ def cmd_lineparser():
         parser.error('--position must be within protein length')
 
     # Check sequence from fasta file only contains genomic sequences
-    if not re.compile(r'(?!.*[A-Z]).*[ATGC]').search(arguments.string_sequence):
+    if re.compile(r'(?!.*[A-Z]).*[ATGC]').search(arguments.string_sequence):
         parser.error('--sequence must only contain genomic bases A,T,G or C')
 
     amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
@@ -481,12 +482,16 @@ def cmd_lineparser():
         if os.path.isdir(arguments.output) is False:
             parser.error('--output requires valid directory')
 
+    arguments.codon_position = int((arguments.position * 3) - 3 + 300)
+    print(arguments.codon_position)
+
     return arguments
 
 
 def main():
     args = cmd_lineparser()  # command line interface
-    mutant = MutantDesigner(args.string_sequence, args.position, args.mutant, args.output)  # intialise mutant designer
+    mutant = MutantDesigner(args.string_sequence, args.position, args.mutant, args.output,
+                            args.codon_position)  # intialise mutant designer
     mutant.design()  # design all sequences based on inputs
     mutant.create_output_file()  # write and save output file
 
