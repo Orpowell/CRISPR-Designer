@@ -477,7 +477,7 @@ def cmd_lineparser():
     if re.compile(r'(?!.*[A-Z]).*[ATGC]').search(arguments.string_sequence):
         parser.error('--sequence must only contain genomic bases A,T,G or C')
 
-    amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
+    amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
 
     # Check a valid single letter amino acid is provided
     if arguments.mutant not in amino_acids:
@@ -493,7 +493,9 @@ def cmd_lineparser():
             parser.error('--output requires valid directory')
 
     arguments.codon_position = int((arguments.position * 3) - 3 + 300)
-    print(arguments.codon_position)
+
+    if arguments.string_sequence[arguments.codon_position: arguments.codon_position+3] == 'ATG':
+        parser.error('Methionine is only encoded by a single amino acid and cannot be mutated')
 
     return arguments
 
