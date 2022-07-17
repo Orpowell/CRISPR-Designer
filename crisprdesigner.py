@@ -267,6 +267,16 @@ class RepairTemplate:
         # Implement synonymous mutation within 20 nucleotides of PAM site
         synonymous_mutation_site = self._switch - 5
         aa = Seq(codon_list[synonymous_mutation_site]).translate()
+
+        j = 0
+        while aa == 'M':
+            synonymous_mutation_site += 1
+            j += 1
+            aa = Seq(codon_list[synonymous_mutation_site]).translate()
+            if j == 4:
+                print('error: Too many methionine repeats, CRISPR Designer cannot implement synonymous mutation')
+                sys.exit(1)
+
         codon_list[synonymous_mutation_site] = synonymous_mutator(aa, codon_list[synonymous_mutation_site]).lower()
         mutant_gene = "".join(codon_list)
 
@@ -287,6 +297,7 @@ class RepairTemplate:
     # Design 20mer or 60mer template based on presence of the 60mer switch
     def design_template(self):
         if type(self._switch) is int:
+            print(self._switch)
             self.make_repair_template_for_60mer()
 
         else:
@@ -466,7 +477,7 @@ def cmd_lineparser():
     if re.compile(r'(?!.*[A-Z]).*[ATGC]').search(arguments.string_sequence):
         parser.error('--sequence must only contain genomic bases A,T,G or C')
 
-    amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
+    amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*']
 
     # Check a valid single letter amino acid is provided
     if arguments.mutant not in amino_acids:
