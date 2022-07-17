@@ -451,7 +451,7 @@ def cmd_lineparser():
 
     group_options = parser.add_argument_group('Options')
     # Get Version
-    group_options.add_argument('-v', '--version', action='version', version='%(prog)s v2.1.0')
+    group_options.add_argument('-v', '--version', action='version', version='%(prog)s v3.0.0')
     # Get help
     group_options.add_argument("-h", "--help", action="help", help="show this help message and exit\n ")
 
