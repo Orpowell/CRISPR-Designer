@@ -167,9 +167,9 @@ class sgRNA:
 
                 pam_sites = find_pam_sites(62, self.codon_position, self.sequence)
 
-                valid_20mers = [find_60mers(x, self.sequence) for x in pam_sites]  # Find all valid 60mer sequences
+                valid_60mers = [find_60mers(x, self.sequence) for x in pam_sites]  # Find all valid 60mer sequences
 
-                result = [oligo for oligo in valid_20mers if oligo[0] is not None]  # Remove None values
+                result = [oligo for oligo in valid_60mers if oligo[0] is not None]  # Remove None values
 
                 oligo = result[-1][0][-20:]  # Target synonymous mutation site not actual mutation FIX ASAP
 
@@ -222,11 +222,11 @@ class RepairTemplate:
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
         # Save description of mutation in format intital aa, position, mutated aa e.g E140A
-        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(
+        self.mutation = Seq(codon_list[self.amino_acid_position + 99]).translate() + str(
             self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         # Implement mutation at target site
-        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
+        codon_list[self.amino_acid_position + 99] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
 
         mutant_gene = "".join(codon_list)
@@ -257,15 +257,15 @@ class RepairTemplate:
         codon_list = [self.sequence[i:i + 3] for i in range(0, len(self.sequence), 3)]
 
         # Save description of mutation in format intital aa, position, mutated aa e.g E140A
-        self.mutation = Seq(codon_list[self.amino_acid_position - 1]).translate() + str(
+        self.mutation = Seq(codon_list[self.amino_acid_position + 99]).translate() + str(
             self.amino_acid_position) + self.amino_acid_mutation + '.txt'
 
         # Implement mutation at target site
-        codon_list[self.amino_acid_position - 1] = (list(codon_table.keys())[
+        codon_list[self.amino_acid_position + 99] = (list(codon_table.keys())[
             list(codon_table.values()).index(self.amino_acid_mutation)]).lower()
 
         # Implement synonymous mutation within 20 nucleotides of PAM site
-        synonymous_mutation_site = self._switch - 5
+        synonymous_mutation_site = self._switch + 95
         aa = Seq(codon_list[synonymous_mutation_site]).translate()
         codon_list[synonymous_mutation_site] = synonymous_mutator(aa, codon_list[synonymous_mutation_site]).lower()
 
